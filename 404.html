@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Page Not Found — Manasa Tailor</title>
+  <meta name="description" content="The page you're looking for doesn't exist. Return to Manasa Tailor — Custom Ladies Stitching in Tumkur, Karnataka.">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✂️</text></svg>">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Jost:wght@300;400;500&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box }
+
+    :root {
+      --rose: #c9728a;
+      --rose-light: #f5e6eb;
+      --rose-dark: #8b3d52;
+      --gold: #b8924a;
+      --gold-light: #f7f0e3;
+      --cream: #fdf8f5;
+      --dark: #2c1a20;
+      --muted: #7a5a64;
+      --border: #e8d5da;
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    body {
+      font-family: 'Jost', sans-serif;
+      background: var(--cream);
+      color: var(--dark);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Nav ── */
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 32px;
+      background: white;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--rose-dark);
+      letter-spacing: 1px;
+      text-decoration: none;
+    }
+
+    .nav-logo span {
+      color: var(--gold);
+      font-style: italic;
+    }
+
+    .nav-home {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color .2s;
+      font-weight: 500;
+    }
+
+    .nav-home:hover { color: var(--rose-dark); }
+
+    /* ── Main 404 area ── */
+    .container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+    }
+
+    .card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      max-width: 560px;
+      width: 100%;
+      overflow: hidden;
+      animation: fadeUp .55s ease both;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Decorative top banner */
+    .card-top {
+      background: var(--rose-dark);
+      padding: 36px 40px 32px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Subtle stitch-line decoration */
+    .card-top::before {
+      content: '';
+      position: absolute;
+      top: 14px;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: repeating-linear-gradient(
+        90deg,
+        rgba(255,255,255,.25) 0px,
+        rgba(255,255,255,.25) 8px,
+        transparent 8px,
+        transparent 14px
+      );
+    }
+
+    .card-top::after {
+      content: '';
+      position: absolute;
+      bottom: 14px;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: repeating-linear-gradient(
+        90deg,
+        rgba(255,255,255,.25) 0px,
+        rgba(255,255,255,.25) 8px,
+        transparent 8px,
+        transparent 14px
+      );
+    }
+
+    .error-num {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 96px;
+      font-weight: 300;
+      color: white;
+      line-height: 1;
+      letter-spacing: -2px;
+      opacity: .15;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      user-select: none;
+      pointer-events: none;
+    }
+
+    .scissors-icon {
+      font-size: 48px;
+      color: rgba(255,255,255,.9);
+      display: block;
+      margin-bottom: 12px;
+      position: relative;
+      animation: snip 2.4s ease-in-out infinite;
+    }
+
+    @keyframes snip {
+      0%, 100% { transform: rotate(-8deg) scale(1); }
+      50%       { transform: rotate(8deg) scale(1.08); }
+    }
+
+    .card-top-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 26px;
+      font-weight: 300;
+      color: white;
+      position: relative;
+    }
+
+    .card-top-title em {
+      font-style: italic;
+      color: var(--gold);
+    }
+
+    /* Card body */
+    .card-body {
+      padding: 36px 40px 40px;
+      text-align: center;
+    }
+
+    .divider-ornament {
+      color: var(--rose);
+      font-size: 14px;
+      letter-spacing: 8px;
+      opacity: .4;
+      margin-bottom: 24px;
+    }
+
+    .card-desc {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.8;
+      margin-bottom: 32px;
+      max-width: 380px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .card-desc strong {
+      color: var(--dark);
+      font-weight: 500;
+    }
+
+    /* Action buttons */
+    .actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 32px;
+    }
+
+    .btn-primary {
+      background: var(--rose-dark);
+      color: white;
+      border: none;
+      padding: 12px 28px;
+      font-family: 'Jost', sans-serif;
+      font-size: 12px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      cursor: pointer;
+      border-radius: 2px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background .2s, transform .15s;
+    }
+
+    .btn-primary:hover {
+      background: var(--rose);
+      transform: translateY(-1px);
+    }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--rose-dark);
+      border: 1px solid var(--rose-dark);
+      padding: 12px 28px;
+      font-family: 'Jost', sans-serif;
+      font-size: 12px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      cursor: pointer;
+      border-radius: 2px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: background .2s, color .2s, transform .15s;
+    }
+
+    .btn-outline:hover {
+      background: var(--rose-dark);
+      color: white;
+      transform: translateY(-1px);
+    }
+
+    /* Quick nav links */
+    .quick-links {
+      border-top: 1px solid var(--border);
+      padding-top: 28px;
+    }
+
+    .quick-links-label {
+      font-size: 11px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 16px;
+      font-weight: 500;
+    }
+
+    .quick-links-grid {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .quick-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      letter-spacing: .5px;
+      color: var(--muted);
+      text-decoration: none;
+      padding: 7px 14px;
+      border: 1px solid var(--border);
+      border-radius: 2px;
+      background: var(--cream);
+      transition: border-color .2s, color .2s, background .2s;
+      font-weight: 500;
+    }
+
+    .quick-link:hover {
+      border-color: var(--rose);
+      color: var(--rose-dark);
+      background: var(--rose-light);
+    }
+
+    /* ── Footer ── */
+    .footer-mini {
+      background: var(--dark);
+      padding: 20px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .footer-mini p {
+      font-size: 11px;
+      color: rgba(255,255,255,.4);
+    }
+
+    .footer-mini a {
+      font-size: 11px;
+      color: rgba(255,255,255,.5);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: color .2s;
+    }
+
+    .footer-mini a:hover { color: var(--rose); }
+
+    /* ── Floating WhatsApp ── */
+    .wa-float {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      width: 56px;
+      height: 56px;
+      background: #25d366;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 28px;
+      box-shadow: 0 4px 16px rgba(37,211,102,.45);
+      z-index: 999;
+      text-decoration: none;
+      transition: transform .2s;
+    }
+
+    .wa-float:hover { transform: scale(1.1); }
+
+    /* ── Responsive ── */
+    @media (max-width: 560px) {
+      .nav { padding: 14px 18px; }
+      .card-top { padding: 28px 24px 24px; }
+      .card-body { padding: 28px 24px 32px; }
+      .error-num { font-size: 72px; }
+      .scissors-icon { font-size: 36px; }
+      .card-top-title { font-size: 22px; }
+      .actions { flex-direction: column; align-items: center; }
+      .btn-primary, .btn-outline { width: 100%; justify-content: center; }
+      .footer-mini { flex-direction: column; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav class="nav">
+    <a href="index.html" class="nav-logo">Manasa <span>Tailor</span></a>
+    <a href="index.html" class="nav-home">
+      <i class="ti ti-arrow-left" aria-hidden="true"></i>
+      Back to Home
+    </a>
+  </nav>
+
+  <!-- Main -->
+  <div class="container">
+    <div class="card">
+
+      <!-- Top banner -->
+      <div class="card-top">
+        <div class="error-num" aria-hidden="true">404</div>
+        <i class="ti ti-scissors scissors-icon" aria-hidden="true"></i>
+        <p class="card-top-title">This thread got <em>cut short</em></p>
+      </div>
+
+      <!-- Body -->
+      <div class="card-body">
+        <div class="divider-ornament" aria-hidden="true">✦ ✦ ✦</div>
+
+        <p class="card-desc">
+          The page you're looking for seems to have gone missing —
+          much like a pattern piece before a big stitch!<br><br>
+          <strong>Don't worry</strong> — let us guide you back to where you need to be.
+        </p>
+
+        <div class="actions">
+          <a href="index.html" class="btn-primary">
+            <i class="ti ti-home" aria-hidden="true"></i>
+            Go to Homepage
+          </a>
+          <a href="index.html#contact" class="btn-outline">
+            <i class="ti ti-brand-whatsapp" aria-hidden="true"></i>
+            Book Appointment
+          </a>
+        </div>
+
+        <div class="quick-links">
+          <p class="quick-links-label">Or jump to a section</p>
+          <div class="quick-links-grid">
+            <a href="index.html#about" class="quick-link">
+              <i class="ti ti-user-star" aria-hidden="true"></i> About
+            </a>
+            <a href="index.html#services" class="quick-link">
+              <i class="ti ti-scissors" aria-hidden="true"></i> Services
+            </a>
+            <a href="index.html#gallery" class="quick-link">
+              <i class="ti ti-photo" aria-hidden="true"></i> Gallery
+            </a>
+            <a href="index.html#pricing" class="quick-link">
+              <i class="ti ti-tag" aria-hidden="true"></i> Pricing
+            </a>
+            <a href="index.html#contact" class="quick-link">
+              <i class="ti ti-phone" aria-hidden="true"></i> Contact
+            </a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Floating WhatsApp -->
+  <a href="https://wa.me/916360194277?text=Hi%20Manasa%20Tailor!%20I%20would%20like%20to%20book%20an%20appointment."
+     target="_blank" rel="noopener" class="wa-float" aria-label="Chat on WhatsApp">
+    <i class="ti ti-brand-whatsapp" aria-hidden="true"></i>
+  </a>
+
+  <!-- Footer -->
+  <footer class="footer-mini">
+    <p>© <span id="yr"></span> Manasa Tailor. All rights reserved.</p>
+    <a href="index.html">
+      <i class="ti ti-needle-thread" aria-hidden="true"></i>
+      Manasa Tailor — Tumkur, Karnataka
+    </a>
+  </footer>
+
+  <script>
+    document.getElementById('yr').textContent = new Date().getFullYear();
+  </script>
+
+</body>
+</html>
