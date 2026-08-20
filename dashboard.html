@@ -619,7 +619,9 @@
       var rows = quotationRow('Stitching', quotation.StitchingCost) + quotationRow('Fabric', quotation.FabricCost);
       if (Number(quotation.AdditionalCost) > 0) rows += quotationRow('Additional', quotation.AdditionalCost);
 
-      var notesHtml = quotation.Notes ? '<p class="quotation-notes">' + esc(quotation.Notes) + '</p>' : '';
+      var timelineHtml = quotation.DeliveryTimeline
+        ? '<p class="quotation-notes"><i class="ti ti-truck-delivery" aria-hidden="true"></i> Delivery: ' + esc(quotation.DeliveryTimeline) + '</p>'
+        : '';
       var actionsHtml = '';
       if (order.Status === 'Quotation Sent') {
         actionsHtml =
@@ -633,7 +635,7 @@
         '<div class="quotation-box">' +
           rows +
           '<div class="quotation-row quotation-total"><span>Total</span><span>' + formatMoney(quotation.TotalAmount) + '</span></div>' +
-          notesHtml + actionsHtml +
+          timelineHtml + actionsHtml +
         '</div>';
     }
 

@@ -1,0 +1,1344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin — Manasa Tailor</title>
+  <meta name="description" content="Manasa Tailor admin dashboard — manage orders, quotations and customers.">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✂️</text></svg>">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Jost:wght@300;400;500&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box }
+
+    :root {
+      --rose: #c9728a;
+      --rose-light: #f5e6eb;
+      --rose-dark: #8b3d52;
+      --gold: #b8924a;
+      --gold-dark: #7f6533;
+      --gold-light: #f7f0e3;
+      --cream: #fdf8f5;
+      --dark: #2c1a20;
+      --muted: #7a5a64;
+      --border: #e8d5da;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: 'Jost', sans-serif;
+      background: var(--cream);
+      color: var(--dark);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Buttons ── */
+    .btn-primary {
+      background: var(--rose-dark); color: white; border: none; padding: 12px 24px;
+      font-family: 'Jost', sans-serif; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;
+      cursor: pointer; border-radius: 2px; text-decoration: none;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      transition: background .2s, transform .15s; white-space: nowrap;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--rose); transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+    .btn-outline {
+      background: transparent; color: var(--rose-dark); border: 1px solid var(--rose-dark); padding: 12px 24px;
+      font-family: 'Jost', sans-serif; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;
+      cursor: pointer; border-radius: 2px; text-decoration: none;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      transition: background .2s, color .2s, transform .15s; white-space: nowrap;
+    }
+    .btn-outline:hover:not(:disabled) { background: var(--rose-dark); color: white; transform: translateY(-1px); }
+    .btn-outline:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+    .btn-sm { padding: 8px 16px; font-size: 11px; }
+
+    /* ── Login overlay ── */
+    .login-overlay {
+      position: fixed; inset: 0; background: rgba(44, 26, 32, .6);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000; padding: 20px;
+    }
+    .login-card {
+      background: white; border-radius: 6px; padding: 40px 36px; max-width: 400px; width: 100%;
+      box-shadow: 0 20px 60px rgba(0,0,0,.25);
+    }
+    .login-eyebrow { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--gold-dark); margin-bottom: 10px; font-weight: 500; text-align: center; }
+    .login-title { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 300; color: var(--dark); text-align: center; margin-bottom: 24px; }
+    .login-title em { font-style: italic; color: var(--rose); }
+    .auth-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
+    .auth-field label { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+    .input-icon { position: relative; display: flex; align-items: center; }
+    .input-icon i { position: absolute; left: 12px; color: var(--rose); font-size: 16px; pointer-events: none; }
+    .input-icon input {
+      width: 100%; font-family: 'Jost', sans-serif; font-size: 13px; color: var(--dark); background: var(--cream);
+      border: 1px solid var(--border); border-radius: 3px; padding: 11px 12px 11px 38px; outline: none;
+    }
+    .input-icon input:focus { border-color: var(--rose); }
+    .form-status { font-size: 12px; min-height: 16px; text-align: center; margin-top: 10px; color: var(--muted); }
+    .form-status.error { color: #b23b3b; font-weight: 500; }
+    .form-status.success { color: var(--rose-dark); font-weight: 500; }
+
+    /* ── Nav ── */
+    .nav {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 32px; background: white; border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 100; flex-wrap: wrap; gap: 12px;
+    }
+    .nav-logo { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 600; color: var(--rose-dark); letter-spacing: .5px; white-space: nowrap; }
+    .nav-logo span { color: var(--gold); font-style: italic; font-size: 14px; font-weight: 400; letter-spacing: 1px; text-transform: uppercase; margin-left: 6px; }
+    .nav-right { display: flex; align-items: center; gap: 16px; }
+    .user-chip { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--dark); font-weight: 500; white-space: nowrap; }
+    .user-chip i { color: var(--rose); font-size: 18px; }
+    .nav-logout { padding: 8px 16px; font-size: 11px; }
+
+    .admin-tabs { display: flex; gap: 4px; padding: 0 32px; background: white; border-bottom: 1px solid var(--border); }
+    .admin-tab {
+      background: none; border: none; padding: 14px 18px; font-family: 'Jost', sans-serif; font-size: 12px;
+      letter-spacing: 1px; text-transform: uppercase; color: var(--muted); font-weight: 500; cursor: pointer;
+      border-bottom: 2px solid transparent; transition: color .2s, border-color .2s; display: flex; align-items: center; gap: 6px;
+    }
+    .admin-tab:hover { color: var(--rose-dark); }
+    .admin-tab.active { color: var(--rose-dark); border-bottom-color: var(--rose-dark); }
+
+    /* ── Notification bell ── */
+    .notif-wrap { position: relative; }
+    .notif-bell { position: relative; background: none; border: none; cursor: pointer; padding: 8px; color: var(--muted); font-size: 20px; display: flex; align-items: center; transition: color .2s; }
+    .notif-bell:hover { color: var(--rose-dark); }
+    .notif-badge {
+      position: absolute; top: 2px; right: 2px; background: var(--rose-dark); color: white; font-size: 9px; font-weight: 600;
+      min-width: 15px; height: 15px; border-radius: 20px; display: none; align-items: center; justify-content: center; padding: 0 3px;
+    }
+    .notif-dropdown {
+      position: absolute; top: calc(100% + 10px); right: 0; width: 340px; max-width: 90vw; background: white;
+      border: 1px solid var(--border); border-radius: 4px; box-shadow: 0 8px 24px rgba(0,0,0,.12);
+      opacity: 0; pointer-events: none; transform: translateY(-6px); transition: opacity .15s, transform .15s;
+      z-index: 200; max-height: 420px; display: flex; flex-direction: column;
+    }
+    .notif-dropdown.open { opacity: 1; pointer-events: auto; transform: translateY(0); }
+    .notif-dropdown-header { padding: 14px 16px; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); font-weight: 500; border-bottom: 1px solid var(--border); }
+    .notif-list { overflow-y: auto; }
+    .notif-item { width: 100%; display: flex; align-items: flex-start; gap: 10px; padding: 12px 16px; background: none; border: none; border-bottom: 1px solid var(--border); cursor: pointer; text-align: left; font-family: 'Jost', sans-serif; }
+    .notif-item:last-child { border-bottom: none; }
+    .notif-item.unread { background: var(--rose-light); }
+    .notif-item-icon { color: var(--rose); font-size: 16px; margin-top: 2px; flex-shrink: 0; }
+    .notif-item-body { display: flex; flex-direction: column; gap: 3px; }
+    .notif-item-msg { font-size: 12.5px; color: var(--dark); line-height: 1.5; }
+    .notif-item-time { font-size: 10.5px; color: var(--muted); }
+    .notif-empty { padding: 24px 16px; text-align: center; font-size: 12px; color: var(--muted); }
+
+    /* ── Main ── */
+    .admin-main { max-width: 1160px; margin: 0 auto; padding: 32px; flex: 1; width: 100%; }
+
+    .page-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; }
+    .page-title { font-family: 'Cormorant Garamond', serif; font-size: 30px; font-weight: 300; color: var(--dark); }
+    .page-title em { font-style: italic; color: var(--rose); }
+
+    .summary-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+    .summary-card {
+      background: white; border: 1px solid var(--border); border-radius: 4px; padding: 18px 18px; text-align: left;
+      display: flex; flex-direction: column; gap: 6px; cursor: pointer; font-family: 'Jost', sans-serif;
+      transition: border-color .2s, background .2s, transform .15s;
+    }
+    .summary-card:hover { border-color: var(--rose); transform: translateY(-1px); }
+    .summary-card.active { border-color: var(--rose-dark); background: var(--rose-light); }
+    .summary-card-icon { font-size: 18px; }
+    .summary-num { font-family: 'Cormorant Garamond', serif; font-size: 28px; font-weight: 600; color: var(--dark); line-height: 1; }
+    .summary-label { font-size: 10.5px; letter-spacing: .5px; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+
+    .filter-row { display: flex; gap: 8px; margin-bottom: 18px; flex-wrap: wrap; align-items: center; }
+    .filter-tab {
+      background: white; border: 1px solid var(--border); color: var(--muted); font-family: 'Jost', sans-serif;
+      font-size: 11px; letter-spacing: .5px; text-transform: uppercase; font-weight: 500; padding: 8px 16px;
+      border-radius: 20px; cursor: pointer; transition: all .2s; white-space: nowrap;
+    }
+    .filter-tab:hover { border-color: var(--rose); color: var(--rose-dark); }
+    .filter-tab.active { background: var(--rose-dark); border-color: var(--rose-dark); color: white; }
+
+    .customer-filter-chip {
+      display: inline-flex; align-items: center; gap: 8px; background: var(--gold-light); border: 1px solid var(--border);
+      border-radius: 20px; padding: 6px 8px 6px 14px; font-size: 12px; color: var(--dark); margin-bottom: 16px;
+    }
+    .customer-filter-chip button { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; line-height: 1; padding: 2px 6px; }
+
+    .table-wrap { background: white; border: 1px solid var(--border); border-radius: 4px; overflow-x: auto; }
+    .data-table { width: 100%; border-collapse: collapse; min-width: 640px; }
+    .data-table th {
+      text-align: left; font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted);
+      font-weight: 500; padding: 14px 16px; border-bottom: 1px solid var(--border); background: var(--cream);
+    }
+    .data-table td { padding: 14px 16px; font-size: 13px; color: var(--dark); border-bottom: 1px solid var(--border); }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table tbody tr:hover { background: var(--cream); }
+    .table-empty { text-align: center; color: var(--muted); padding: 32px 16px !important; }
+    .table-action-btn { white-space: nowrap; }
+
+    .badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 4px 12px; border-radius: 20px; font-weight: 500; white-space: nowrap; }
+    .badge-yellow { background: #fbf0d9; color: #8a6a1f; }
+    .badge-blue { background: #e2ecf5; color: #2f5a82; }
+    .badge-green { background: #e3f0e3; color: #2f6b3f; }
+    .badge-check { background: var(--rose-light); color: var(--rose-dark); }
+    .badge-muted { background: #ececec; color: #777; }
+
+    /* ── Customers view ── */
+    .search-row { margin-bottom: 18px; max-width: 340px; }
+
+    /* ── Detail panel ── */
+    .detail-backdrop {
+      position: fixed; inset: 0; background: rgba(44,26,32,.45); z-index: 300;
+      opacity: 0; pointer-events: none; transition: opacity .2s;
+    }
+    .detail-backdrop.open { opacity: 1; pointer-events: auto; }
+
+    .detail-panel {
+      position: fixed; top: 0; right: 0; bottom: 0; width: 480px; max-width: 92vw; background: var(--cream);
+      z-index: 301; transform: translateX(100%); transition: transform .25s ease; display: flex; flex-direction: column;
+      box-shadow: -8px 0 30px rgba(0,0,0,.15);
+    }
+    .detail-panel.open { transform: translateX(0); }
+    .detail-panel-header {
+      display: flex; align-items: center; justify-content: space-between; padding: 20px 24px;
+      background: white; border-bottom: 1px solid var(--border); flex-shrink: 0;
+    }
+    .detail-panel-title { font-family: 'Cormorant Garamond', serif; font-size: 20px; color: var(--dark); }
+    .detail-panel-close { background: none; border: none; font-size: 22px; color: var(--muted); cursor: pointer; line-height: 1; padding: 4px; }
+    .detail-panel-close:hover { color: var(--rose-dark); }
+    .detail-panel-body { padding: 20px 24px 40px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 16px; }
+
+    .detail-block { background: white; border: 1px solid var(--border); border-radius: 4px; padding: 16px 18px; }
+    .detail-block-title { display: flex; align-items: center; gap: 8px; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--rose-dark); font-weight: 500; margin-bottom: 12px; }
+    .detail-empty { font-size: 12px; color: var(--muted); }
+    .detail-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 16px; }
+    .detail-field { display: flex; flex-direction: column; gap: 2px; }
+    .detail-field-label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+    .detail-field-value { font-size: 13px; color: var(--dark); }
+    .detail-field.full-width { grid-column: 1 / -1; }
+
+    .detail-collapse { background: white; border: 1px solid var(--border); border-radius: 4px; padding: 12px 16px; }
+    .detail-collapse summary { cursor: pointer; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--rose-dark); font-weight: 500; }
+    .detail-collapse[open] summary { margin-bottom: 10px; }
+    .measure-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .measure-row { display: flex; justify-content: space-between; font-size: 12px; padding: 6px 10px; background: var(--cream); border-radius: 3px; }
+    .measure-row span:first-child { color: var(--muted); text-transform: capitalize; }
+    .measure-row span:last-child { color: var(--dark); font-weight: 500; }
+
+    .timeline { display: flex; flex-direction: column; }
+    .timeline-step { display: flex; align-items: flex-start; gap: 12px; padding: 6px 0; position: relative; }
+    .timeline-step:not(:last-child)::before { content: ''; position: absolute; left: 9px; top: 24px; bottom: -6px; width: 1px; background: var(--border); }
+    .timeline-icon { width: 20px; height: 20px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+    .timeline-label { font-size: 13px; color: var(--muted); }
+    .timeline-step.done .timeline-label { color: var(--dark); font-weight: 500; }
+    .timeline-step.current .timeline-label { color: var(--rose-dark); font-weight: 600; }
+    .timeline-date { font-size: 11px; color: var(--muted); margin-left: 6px; }
+    .timeline-current-tag { font-size: 11px; color: var(--rose); font-style: italic; margin-left: 6px; }
+    .timeline-cancelled { display: flex; align-items: center; gap: 8px; color: #b23b3b; font-size: 13px; font-weight: 500; }
+
+    .qb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; margin-bottom: 14px; }
+    .qb-field { display: flex; flex-direction: column; gap: 6px; }
+    .qb-field.full-width { grid-column: 1 / -1; }
+    .qb-field label { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+    .qb-field input, .qb-field textarea {
+      font-family: 'Jost', sans-serif; font-size: 13px; color: var(--dark); background: var(--cream);
+      border: 1px solid var(--border); border-radius: 3px; padding: 10px 12px; outline: none;
+    }
+    .qb-field input:focus, .qb-field textarea:focus { border-color: var(--rose); }
+    .qb-total-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-top: 1px solid var(--border); margin-bottom: 14px; }
+    .qb-total-row span:first-child { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+    .qb-total-row span:last-child { font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 600; color: var(--rose-dark); }
+
+    .status-select {
+      width: 100%; font-family: 'Jost', sans-serif; font-size: 13px; color: var(--dark); background: var(--cream);
+      border: 1px solid var(--border); border-radius: 3px; padding: 10px 12px; outline: none; margin-bottom: 14px;
+    }
+    .status-select:focus { border-color: var(--rose); }
+
+    .photo-upload-zone { border: 1.5px dashed var(--border); border-radius: 4px; padding: 18px; text-align: center; margin-bottom: 14px; }
+    .photo-upload-zone i { font-size: 24px; color: var(--rose); margin-bottom: 6px; display: block; }
+    .photo-upload-zone p { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+    .photo-preview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+    .photo-preview-item { position: relative; aspect-ratio: 1; border-radius: 3px; overflow: hidden; border: 1px solid var(--border); }
+    .photo-preview-item img { width: 100%; height: 100%; object-fit: cover; }
+    .photo-preview-remove {
+      position: absolute; top: 4px; right: 4px; background: rgba(44,26,32,.7); color: white; border: none;
+      border-radius: 50%; width: 20px; height: 20px; font-size: 12px; cursor: pointer; line-height: 1;
+    }
+    .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 8px; }
+    .photo-grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 3px; border: 1px solid var(--border); }
+
+    .closed-note { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); background: white; border: 1px solid var(--border); border-radius: 4px; padding: 14px 16px; }
+
+    /* ── Generic modal ── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(44,26,32,.55); z-index: 400;
+      display: none; align-items: center; justify-content: center; padding: 20px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal-card { background: white; border-radius: 6px; padding: 32px 30px; max-width: 440px; width: 100%; max-height: 90vh; overflow-y: auto; }
+    .modal-title { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 400; color: var(--dark); margin-bottom: 4px; }
+    .modal-subtitle { font-size: 12px; color: var(--muted); margin-bottom: 22px; }
+    .modal-close-row { display: flex; justify-content: flex-end; margin-bottom: -8px; }
+
+    .credentials-box { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; }
+    .credential-row {
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      background: var(--cream); border: 1px solid var(--border); border-radius: 3px; padding: 10px 12px;
+    }
+    .credential-row-text { display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+    .credential-row-label { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+    .credential-row-value { font-size: 13px; color: var(--dark); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .credential-copy-btn { background: none; border: 1px solid var(--border); border-radius: 3px; color: var(--rose-dark); cursor: pointer; padding: 6px 8px; flex-shrink: 0; font-size: 14px; }
+    .credential-copy-btn:hover { border-color: var(--rose); }
+
+    /* ── Footer ── */
+    .footer-mini { background: var(--dark); padding: 18px 32px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+    .footer-mini p { font-size: 11px; color: rgba(255,255,255,.4); }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 720px) {
+      .nav { padding: 12px 16px; }
+      .nav-logo span { display: none; }
+      .admin-tabs { padding: 0 16px; }
+      .admin-main { padding: 20px 16px; }
+      .detail-grid, .qb-grid { grid-template-columns: 1fr; }
+      .detail-panel { width: 100%; max-width: 100vw; }
+    }
+    @media (max-width: 480px) {
+      .user-chip { display: none; }
+      .nav-logout span { display: none; }
+      .summary-grid { grid-template-columns: 1fr 1fr; }
+      .photo-preview-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Admin login overlay -->
+  <div class="login-overlay" id="loginOverlay">
+    <div class="login-card">
+      <p class="login-eyebrow">Manasa Tailor</p>
+      <h1 class="login-title">Admin <em>Login</em></h1>
+      <form id="adminLoginForm" onsubmit="return handleAdminLogin(event)">
+        <div class="auth-field">
+          <label for="adminEmail">Email</label>
+          <div class="input-icon">
+            <i class="ti ti-mail" aria-hidden="true"></i>
+            <input id="adminEmail" type="email" autocomplete="username" required>
+          </div>
+        </div>
+        <div class="auth-field">
+          <label for="adminPassword">Password</label>
+          <div class="input-icon">
+            <i class="ti ti-lock" aria-hidden="true"></i>
+            <input id="adminPassword" type="password" autocomplete="current-password" required>
+          </div>
+        </div>
+        <button type="submit" class="btn-primary" id="adminLoginBtn" style="width:100%">Login</button>
+        <p class="form-status" id="adminLoginStatus" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- Admin app -->
+  <div id="adminApp" style="display:none">
+
+    <nav class="nav">
+      <div class="nav-logo">Manasa Tailor <span>Admin</span></div>
+      <div class="nav-right">
+        <div class="notif-wrap">
+          <button type="button" class="notif-bell" id="notifBellBtn" aria-haspopup="true" aria-expanded="false" aria-label="Notifications">
+            <i class="ti ti-bell" aria-hidden="true"></i>
+            <span class="notif-badge" id="notifBadge">0</span>
+          </button>
+          <div class="notif-dropdown" id="notifDropdown">
+            <div class="notif-dropdown-header">Notifications</div>
+            <div class="notif-list" id="notifList"><p class="notif-empty">Loading…</p></div>
+          </div>
+        </div>
+        <div class="user-chip">
+          <i class="ti ti-user-circle" aria-hidden="true"></i>
+          <span>Logged in as: <span id="adminNameChip">—</span></span>
+        </div>
+        <button type="button" class="btn-outline nav-logout" onclick="adminLogout()">
+          <i class="ti ti-logout" aria-hidden="true"></i> <span>Logout</span>
+        </button>
+      </div>
+    </nav>
+
+    <div class="admin-tabs">
+      <button type="button" class="admin-tab active" id="tabOrdersBtn" onclick="switchView('orders')">
+        <i class="ti ti-shopping-bag" aria-hidden="true"></i> Orders
+      </button>
+      <button type="button" class="admin-tab" id="tabCustomersBtn" onclick="switchView('customers')">
+        <i class="ti ti-users" aria-hidden="true"></i> Customers
+      </button>
+    </div>
+
+    <main class="admin-main">
+
+      <!-- ORDERS VIEW -->
+      <div id="ordersView">
+        <div class="page-header">
+          <h1 class="page-title">Order <em>Management</em></h1>
+          <button type="button" class="btn-primary" onclick="openWalkInModal()">
+            <i class="ti ti-user-plus" aria-hidden="true"></i> Create Walk-In Profile
+          </button>
+        </div>
+
+        <div class="summary-grid">
+          <button type="button" class="summary-card" id="cardPending" onclick="applyCardFilter('pending', ['Quotation Requested'])">
+            <span class="summary-card-icon">🔔</span>
+            <span class="summary-num" id="countPending">0</span>
+            <span class="summary-label">Pending Quotations</span>
+          </button>
+          <button type="button" class="summary-card" id="cardInProgress" onclick="applyCardFilter('inprogress', ['Work In Progress'])">
+            <span class="summary-card-icon">🔵</span>
+            <span class="summary-num" id="countInProgress">0</span>
+            <span class="summary-label">In Progress</span>
+          </button>
+          <button type="button" class="summary-card" id="cardReady" onclick="applyCardFilter('ready', ['Ready for Collection'])">
+            <span class="summary-card-icon">🟢</span>
+            <span class="summary-num" id="countReady">0</span>
+            <span class="summary-label">Ready to Collect</span>
+          </button>
+          <button type="button" class="summary-card" id="cardActive" onclick="applyCardFilter('active', null, true)">
+            <span class="summary-card-icon">📦</span>
+            <span class="summary-num" id="countActive">0</span>
+            <span class="summary-label">Total Active</span>
+          </button>
+        </div>
+
+        <div id="customerFilterChipWrap"></div>
+
+        <div class="filter-row" id="filterTabsRow"></div>
+
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Order ID</th><th>Customer</th><th>Service</th><th>Date</th><th>Status</th><th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="ordersTableBody">
+              <tr><td colspan="6" class="table-empty">Loading orders…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- CUSTOMERS VIEW -->
+      <div id="customersView" style="display:none">
+        <div class="page-header">
+          <h1 class="page-title">Customer <em>List</em></h1>
+        </div>
+        <div class="search-row">
+          <div class="input-icon">
+            <i class="ti ti-search" aria-hidden="true"></i>
+            <input type="text" id="customerSearchInput" placeholder="Search by name or mobile" oninput="renderCustomersTable()">
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr><th>Name</th><th>Mobile</th><th>Email</th><th>Total Orders</th><th>Last Order</th><th>Action</th></tr>
+            </thead>
+            <tbody id="customersTableBody">
+              <tr><td colspan="6" class="table-empty">Loading customers…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </main>
+
+    <footer class="footer-mini">
+      <p>© <span id="yr"></span> Manasa Tailor — Admin Dashboard</p>
+    </footer>
+
+  </div>
+
+  <!-- Order detail panel -->
+  <div class="detail-backdrop" id="orderDetailBackdrop" onclick="closeOrderDetail()"></div>
+  <div class="detail-panel" id="orderDetailPanel">
+    <div class="detail-panel-header">
+      <h2 class="detail-panel-title" id="detailPanelOrderId">Order</h2>
+      <button type="button" class="detail-panel-close" onclick="closeOrderDetail()" aria-label="Close">&times;</button>
+    </div>
+    <div class="detail-panel-body" id="orderDetailBody"></div>
+  </div>
+
+  <!-- Walk-in profile modal -->
+  <div class="modal-overlay" id="walkInModal">
+    <div class="modal-card">
+      <div class="modal-close-row">
+        <button type="button" class="detail-panel-close" onclick="closeWalkInModal()" aria-label="Close">&times;</button>
+      </div>
+
+      <div id="walkInFormView">
+        <h2 class="modal-title">Walk-In <em style="font-style:italic;color:var(--rose)">Profile</em></h2>
+        <p class="modal-subtitle">Create an account for a customer visiting the store in person.</p>
+        <form id="walkInForm" onsubmit="return handleWalkInSubmit(event)">
+          <div class="auth-field">
+            <label for="wiName">Full Name</label>
+            <input id="wiName" type="text" required style="font-family:'Jost',sans-serif;font-size:13px;color:var(--dark);background:var(--cream);border:1px solid var(--border);border-radius:3px;padding:11px 12px;outline:none;width:100%">
+          </div>
+          <div class="auth-field">
+            <label for="wiMobile">Mobile (WhatsApp)</label>
+            <input id="wiMobile" type="tel" required style="font-family:'Jost',sans-serif;font-size:13px;color:var(--dark);background:var(--cream);border:1px solid var(--border);border-radius:3px;padding:11px 12px;outline:none;width:100%">
+          </div>
+          <div class="auth-field">
+            <label for="wiEmail">Email</label>
+            <input id="wiEmail" type="email" required style="font-family:'Jost',sans-serif;font-size:13px;color:var(--dark);background:var(--cream);border:1px solid var(--border);border-radius:3px;padding:11px 12px;outline:none;width:100%">
+          </div>
+          <div class="auth-field">
+            <label for="wiService">Selected Service <span style="text-transform:none;letter-spacing:0;opacity:.7">(optional)</span></label>
+            <select id="wiService" class="status-select" style="margin-bottom:0"></select>
+          </div>
+          <div class="auth-field">
+            <label for="wiReason">Reason for Visit <span style="text-transform:none;letter-spacing:0;opacity:.7">(optional)</span></label>
+            <textarea id="wiReason" rows="2" style="font-family:'Jost',sans-serif;font-size:13px;color:var(--dark);background:var(--cream);border:1px solid var(--border);border-radius:3px;padding:11px 12px;outline:none;width:100%;resize:vertical"></textarea>
+          </div>
+          <button type="submit" class="btn-primary" id="wiSubmitBtn" style="width:100%">Create Profile</button>
+          <p class="form-status" id="wiStatus" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+
+      <div id="walkInCredentialsView" style="display:none">
+        <h2 class="modal-title">Profile <em style="font-style:italic;color:var(--rose)">Created!</em></h2>
+        <p class="modal-subtitle">Share these with the customer.</p>
+        <div class="credentials-box" id="credentialsBox"></div>
+        <button type="button" class="btn-primary" onclick="closeWalkInModal()" style="width:100%">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('yr').textContent = new Date().getFullYear();
+
+    var GOOGLE_SHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbw2KxuusQ5rHQO4hXlpLhPFL2DtrWQeX7pnTVud4w9w4TL6bH1w4vYao1sPjxXWQKycMg/exec";
+    var ADMIN_STORAGE_KEY = 'manasaAdmin';
+    var ADMIN_WHATSAPP = '916360194277';
+    var LOGIN_URL = 'https://tarun-sr.github.io/Manasa-Tailor/login.html';
+
+    var TIMELINE_STAGES = ['Quotation Requested', 'Quotation Sent', 'Order Confirmed', 'Measurement Taken', 'Work In Progress', 'Ready for Collection', 'Delivered'];
+    var VALID_STATUS_TRANSITIONS = {
+      'Order Confirmed': ['Measurement Taken'],
+      'Measurement Taken': ['Work In Progress'],
+      'Work In Progress': ['Ready for Collection'],
+      'Ready for Collection': ['Delivered']
+    };
+    var FILTER_TABS = [
+      { key: 'all', label: 'All', statuses: null },
+      { key: 'pending', label: 'Pending', statuses: ['Quotation Requested', 'Quotation Sent'] },
+      { key: 'confirmed', label: 'Confirmed', statuses: ['Order Confirmed', 'Measurement Taken'] },
+      { key: 'inprogress', label: 'In Progress', statuses: ['Work In Progress'] },
+      { key: 'ready', label: 'Ready', statuses: ['Ready for Collection'] },
+      { key: 'delivered', label: 'Delivered', statuses: ['Delivered'] }
+    ];
+    var SERVICES = ['Saree Blouse', 'Salwar / Churidar Set', 'Gown', 'Kurti / Top', 'Kids Frock', 'Alterations'];
+
+    var CURRENT_ADMIN = null;
+    var allOrders = [];
+    var allUsers = [];
+    var usersById = {};
+    var notifications = [];
+
+    var currentView = 'orders';
+    var currentFilterStatuses = null;
+    var activeTabKey = 'all';
+    var activeCardKey = null;
+    var currentCustomerFilter = null;
+    var activeOrderId = null;
+    var pendingPhotoDataUrls = [];
+
+    // ---------- Session guard (modal, not redirect) ----------
+
+    (function initSession() {
+      try {
+        CURRENT_ADMIN = JSON.parse(localStorage.getItem(ADMIN_STORAGE_KEY) || 'null');
+      } catch (err) {
+        CURRENT_ADMIN = null;
+      }
+      if (CURRENT_ADMIN && CURRENT_ADMIN.adminId) {
+        showAdminApp();
+      }
+    })();
+
+    function showAdminApp() {
+      document.getElementById('loginOverlay').style.display = 'none';
+      document.getElementById('adminApp').style.display = 'block';
+      document.getElementById('adminNameChip').textContent = CURRENT_ADMIN.name || 'Admin';
+      loadAdminData();
+    }
+
+    function adminLogout() {
+      localStorage.removeItem(ADMIN_STORAGE_KEY);
+      location.reload();
+    }
+
+    function handleAdminLogin(e) {
+      e.preventDefault();
+      var btn = document.getElementById('adminLoginBtn');
+      var status = document.getElementById('adminLoginStatus');
+      var email = document.getElementById('adminEmail').value.trim();
+      var password = document.getElementById('adminPassword').value;
+
+      btn.disabled = true;
+      setStatus(status, '', '');
+
+      callApi('loginAdmin', { email: email, password: password }).then(function (res) {
+        if (res && res.success) {
+          CURRENT_ADMIN = res.data;
+          localStorage.setItem(ADMIN_STORAGE_KEY, JSON.stringify(CURRENT_ADMIN));
+          showAdminApp();
+        } else {
+          setStatus(status, (res && res.error) || 'Login failed. Please try again.', 'error');
+          btn.disabled = false;
+        }
+      }).catch(function () {
+        setStatus(status, "Couldn't reach the server. Please check your connection.", 'error');
+        btn.disabled = false;
+      });
+
+      return false;
+    }
+
+    // ---------- Helpers ----------
+
+    function esc(str) {
+      return String(str === null || str === undefined ? '' : str).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+
+    function setStatus(el, message, type) {
+      el.textContent = message;
+      el.className = 'form-status' + (type ? ' ' + type : '');
+    }
+
+    function formatDate(value) {
+      if (!value) return '';
+      var date = new Date(value);
+      if (isNaN(date.getTime())) return '';
+      return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    }
+
+    function formatMoney(n) {
+      return '₹' + (Number(n) || 0).toLocaleString('en-IN');
+    }
+
+    // Customers register with a bare 10-digit mobile number (see login.html /
+    // booking.html), but wa.me links need the full international number or
+    // WhatsApp won't resolve the chat — assume India (+91) for a 10-digit
+    // number, same as every hardcoded business number elsewhere in this site.
+    function toWhatsAppNumber(phone) {
+      var digits = (phone || '').replace(/\D/g, '');
+      return digits.length === 10 ? '91' + digits : digits;
+    }
+
+    function callApi(action, payload) {
+      var body = { action: action };
+      for (var key in payload) body[key] = payload[key];
+      return fetch(GOOGLE_SHEET_WEBAPP_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(body)
+      }).then(function (res) { return res.json(); });
+    }
+
+    function statusBadge(status) {
+      var map = {
+        'Quotation Requested': { cls: 'badge-yellow', emoji: '🟡' },
+        'Quotation Sent': { cls: 'badge-yellow', emoji: '🟡' },
+        'Order Confirmed': { cls: 'badge-blue', emoji: '🔵' },
+        'Measurement Taken': { cls: 'badge-blue', emoji: '🔵' },
+        'Work In Progress': { cls: 'badge-blue', emoji: '🔵' },
+        'Ready for Collection': { cls: 'badge-green', emoji: '🟢' },
+        'Delivered': { cls: 'badge-check', emoji: '✅' },
+        'Cancelled': { cls: 'badge-muted', emoji: '⚪' }
+      };
+      return map[status] || { cls: 'badge-muted', emoji: '⚪' };
+    }
+
+    // ---------- Data loading ----------
+
+    function loadAdminData() {
+      Promise.all([
+        callApi('getAllOrders', { adminId: CURRENT_ADMIN.adminId }),
+        callApi('getAllUsers', { adminId: CURRENT_ADMIN.adminId }),
+        callApi('getNotifications', { userId: CURRENT_ADMIN.adminId })
+      ]).then(function (results) {
+        var ordersRes = results[0], usersRes = results[1], notifsRes = results[2];
+
+        allOrders = (ordersRes && ordersRes.success) ? ordersRes.data.orders : [];
+        allUsers = (usersRes && usersRes.success) ? usersRes.data.users : [];
+        notifications = (notifsRes && notifsRes.success) ? notifsRes.data.notifications : [];
+
+        usersById = {};
+        allUsers.forEach(function (u) { usersById[u.UserID] = u; });
+
+        renderSummaryCards();
+        renderFilterTabs();
+        renderOrdersTable();
+        renderCustomersTable();
+        renderNotifDropdown();
+        updateNotifBadge();
+      }).catch(function () {
+        document.getElementById('ordersTableBody').innerHTML = '<tr><td colspan="6" class="table-empty">Couldn\'t load orders. Please refresh.</td></tr>';
+      });
+    }
+
+    // ---------- Tabs ----------
+
+    function switchView(view) {
+      currentView = view;
+      document.getElementById('ordersView').style.display = view === 'orders' ? 'block' : 'none';
+      document.getElementById('customersView').style.display = view === 'customers' ? 'block' : 'none';
+      document.getElementById('tabOrdersBtn').classList.toggle('active', view === 'orders');
+      document.getElementById('tabCustomersBtn').classList.toggle('active', view === 'customers');
+    }
+
+    // ---------- Summary cards ----------
+
+    function renderSummaryCards() {
+      document.getElementById('countPending').textContent = allOrders.filter(function (o) { return o.Status === 'Quotation Requested'; }).length;
+      document.getElementById('countInProgress').textContent = allOrders.filter(function (o) { return o.Status === 'Work In Progress'; }).length;
+      document.getElementById('countReady').textContent = allOrders.filter(function (o) { return o.Status === 'Ready for Collection'; }).length;
+      document.getElementById('countActive').textContent = allOrders.filter(function (o) { return o.Status !== 'Delivered'; }).length;
+
+      ['cardPending', 'cardInProgress', 'cardReady', 'cardActive'].forEach(function (id) {
+        document.getElementById(id).classList.remove('active');
+      });
+      var map = { pending: 'cardPending', inprogress: 'cardInProgress', ready: 'cardReady', active: 'cardActive' };
+      if (activeCardKey && map[activeCardKey]) document.getElementById(map[activeCardKey]).classList.add('active');
+    }
+
+    function applyCardFilter(cardKey, statuses, isActiveDefinition) {
+      // Matches the "Total Active" count exactly (all non-Delivered orders,
+      // Cancelled included) so the card's number and its filtered table agree.
+      currentFilterStatuses = isActiveDefinition
+        ? ['Quotation Requested', 'Quotation Sent', 'Order Confirmed', 'Measurement Taken', 'Work In Progress', 'Ready for Collection', 'Cancelled']
+        : statuses;
+      activeCardKey = cardKey;
+      activeTabKey = null;
+      renderSummaryCards();
+      renderFilterTabs();
+      renderOrdersTable();
+    }
+
+    // ---------- Filter tabs ----------
+
+    function renderFilterTabs() {
+      var row = document.getElementById('filterTabsRow');
+      row.innerHTML = FILTER_TABS.map(function (tab) {
+        return '<button type="button" class="filter-tab' + (tab.key === activeTabKey ? ' active' : '') + '" onclick="applyTabFilter(\'' + tab.key + '\')">' + esc(tab.label) + '</button>';
+      }).join('');
+    }
+
+    function applyTabFilter(key) {
+      var tab = FILTER_TABS.filter(function (t) { return t.key === key; })[0];
+      currentFilterStatuses = tab ? tab.statuses : null;
+      activeTabKey = key;
+      activeCardKey = null;
+      renderSummaryCards();
+      renderFilterTabs();
+      renderOrdersTable();
+    }
+
+    // ---------- Orders table ----------
+
+    function getFilteredOrders() {
+      return allOrders.filter(function (o) {
+        if (currentCustomerFilter && o.UserID !== currentCustomerFilter) return false;
+        if (currentFilterStatuses && currentFilterStatuses.indexOf(o.Status) === -1) return false;
+        return true;
+      }).sort(function (a, b) { return new Date(b.CreatedAt) - new Date(a.CreatedAt); });
+    }
+
+    function renderOrdersTable() {
+      var orders = getFilteredOrders();
+      var tbody = document.getElementById('ordersTableBody');
+      if (!orders.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="table-empty">No orders match this filter.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = orders.map(function (o) {
+        var user = usersById[o.UserID];
+        var badge = statusBadge(o.Status);
+        return '' +
+          '<tr>' +
+            '<td>' + esc(o.OrderID) + '</td>' +
+            '<td>' + esc(user ? user.Name : '—') + '</td>' +
+            '<td>' + esc(o.Garment) + '</td>' +
+            '<td>' + formatDate(o.CreatedAt) + '</td>' +
+            '<td><span class="badge ' + badge.cls + '">' + badge.emoji + ' ' + esc(o.Status) + '</span></td>' +
+            '<td><button type="button" class="btn-outline table-action-btn btn-sm" onclick="openOrderDetail(\'' + o.OrderID + '\')">View / Update</button></td>' +
+          '</tr>';
+      }).join('');
+    }
+
+    function renderCustomerFilterChip() {
+      var wrap = document.getElementById('customerFilterChipWrap');
+      if (!currentCustomerFilter) { wrap.innerHTML = ''; return; }
+      var user = usersById[currentCustomerFilter];
+      wrap.innerHTML = '<div class="customer-filter-chip">Filtering by: <strong>' + esc(user ? user.Name : currentCustomerFilter) + '</strong><button type="button" onclick="clearCustomerFilter()" aria-label="Clear filter">&times;</button></div>';
+    }
+
+    function clearCustomerFilter() {
+      currentCustomerFilter = null;
+      renderCustomerFilterChip();
+      renderOrdersTable();
+    }
+
+    function filterByCustomer(userId) {
+      currentCustomerFilter = userId;
+      currentFilterStatuses = null;
+      activeTabKey = 'all';
+      activeCardKey = null;
+      switchView('orders');
+      renderSummaryCards();
+      renderFilterTabs();
+      renderCustomerFilterChip();
+      renderOrdersTable();
+    }
+
+    // ---------- Customers table ----------
+
+    function renderCustomersTable() {
+      var query = (document.getElementById('customerSearchInput').value || '').trim().toLowerCase();
+      var filtered = allUsers.filter(function (u) {
+        if (!query) return true;
+        return (u.Name || '').toLowerCase().indexOf(query) !== -1 || (u.Phone || '').indexOf(query) !== -1;
+      });
+      var tbody = document.getElementById('customersTableBody');
+      if (!filtered.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="table-empty">No customers found.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = filtered.map(function (u) {
+        var userOrders = allOrders.filter(function (o) { return o.UserID === u.UserID; });
+        var lastOrder = userOrders.sort(function (a, b) { return new Date(b.CreatedAt) - new Date(a.CreatedAt); })[0];
+        return '' +
+          '<tr>' +
+            '<td>' + esc(u.Name) + '</td>' +
+            '<td>' + esc(u.Phone) + '</td>' +
+            '<td>' + esc(u.Email) + '</td>' +
+            '<td>' + userOrders.length + '</td>' +
+            '<td>' + (lastOrder ? formatDate(lastOrder.CreatedAt) : '—') + '</td>' +
+            '<td><button type="button" class="btn-outline table-action-btn btn-sm" onclick="filterByCustomer(\'' + u.UserID + '\')">View Orders</button></td>' +
+          '</tr>';
+      }).join('');
+    }
+
+    // ---------- Order detail panel ----------
+
+    function openOrderDetail(orderId) {
+      activeOrderId = orderId;
+      pendingPhotoDataUrls = [];
+      document.getElementById('orderDetailPanel').classList.add('open');
+      document.getElementById('orderDetailBackdrop').classList.add('open');
+      renderOrderDetailPanel();
+    }
+
+    function closeOrderDetail() {
+      document.getElementById('orderDetailPanel').classList.remove('open');
+      document.getElementById('orderDetailBackdrop').classList.remove('open');
+      activeOrderId = null;
+    }
+
+    function renderOrderDetailPanel() {
+      var order = allOrders.filter(function (o) { return o.OrderID === activeOrderId; })[0];
+      if (!order) { closeOrderDetail(); return; }
+      var user = usersById[order.UserID] || {};
+
+      document.getElementById('detailPanelOrderId').textContent = order.OrderID;
+
+      var badge = statusBadge(order.Status);
+      var html = '' +
+        '<div class="detail-block">' +
+          '<div class="detail-block-title"><i class="ti ti-user" aria-hidden="true"></i> Customer</div>' +
+          '<div class="detail-grid">' +
+            detailField('Name', user.Name) +
+            detailField('Mobile', user.Phone) +
+            detailField('Email', user.Email) +
+          '</div>' +
+        '</div>' +
+        '<div class="detail-block">' +
+          '<div class="detail-block-title"><i class="ti ti-shirt" aria-hidden="true"></i> Order</div>' +
+          '<div class="detail-grid">' +
+            detailField('Service', order.Garment) +
+            detailField('Status', badge.emoji + ' ' + order.Status) +
+            detailField('Preferred Delivery Date', order.Date) +
+            detailField('Placed On', formatDate(order.CreatedAt)) +
+          '</div>' +
+          (order.Notes ? '<div class="detail-grid" style="margin-top:10px"><div class="detail-field full-width"><span class="detail-field-label">Special Instructions</span><span class="detail-field-value">' + esc(order.Notes) + '</span></div></div>' : '') +
+        '</div>' +
+        '<details class="detail-collapse"><summary>Measurements</summary><div id="orderMeasurementsContent"><p class="detail-empty">Loading…</p></div></details>' +
+        '<div class="detail-block"><div class="detail-block-title"><i class="ti ti-timeline" aria-hidden="true"></i> Status Timeline</div><div id="orderTimelineContent"><p class="detail-empty">Loading…</p></div></div>' +
+        '<div id="orderActionBlock"><p class="detail-empty">Loading…</p></div>';
+
+      document.getElementById('orderDetailBody').innerHTML = html;
+
+      loadOrderMeasurements(order);
+      loadOrderTimeline(order);
+      loadOrderActionBlock(order);
+    }
+
+    function detailField(label, value) {
+      return '<div class="detail-field"><span class="detail-field-label">' + esc(label) + '</span><span class="detail-field-value">' + (value ? esc(value) : '—') + '</span></div>';
+    }
+
+    function loadOrderMeasurements(order) {
+      var orderId = order.OrderID;
+      callApi('getMeasurementsByUser', { userId: order.UserID }).then(function (res) {
+        if (orderId !== activeOrderId) return; // a different order's panel is open now — don't overwrite it
+        var el = document.getElementById('orderMeasurementsContent');
+        if (!el) return;
+        var match = (res && res.success) ? res.data.measurements.filter(function (m) { return m.garment === order.Garment; })[0] : null;
+        if (!match || !match.measurements || !Object.keys(match.measurements).length) {
+          el.innerHTML = '<p class="detail-empty">No measurements saved yet.</p>';
+          return;
+        }
+        el.innerHTML = '<div class="measure-grid">' + Object.keys(match.measurements).map(function (key) {
+          return '<div class="measure-row"><span>' + esc(key) + '</span><span>' + esc(match.measurements[key]) + '</span></div>';
+        }).join('') + '</div>';
+      }).catch(function () {
+        var el = document.getElementById('orderMeasurementsContent');
+        if (el) el.innerHTML = '<p class="detail-empty">Couldn\'t load measurements.</p>';
+      });
+    }
+
+    function loadOrderTimeline(order) {
+      var orderId = order.OrderID;
+      callApi('getOrderTimeline', { adminId: CURRENT_ADMIN.adminId, orderId: order.OrderID }).then(function (res) {
+        if (orderId !== activeOrderId) return;
+        var el = document.getElementById('orderTimelineContent');
+        if (!el) return;
+        var events = (res && res.success) ? res.data.events : [];
+        el.innerHTML = renderTimeline(order, events);
+      }).catch(function () {
+        var el = document.getElementById('orderTimelineContent');
+        if (el) el.innerHTML = '<p class="detail-empty">Couldn\'t load timeline.</p>';
+      });
+    }
+
+    function renderTimeline(order, events) {
+      if (order.Status === 'Cancelled') {
+        return '<p class="timeline-cancelled"><i class="ti ti-x" aria-hidden="true"></i> This order was cancelled.</p>';
+      }
+      var currentIndex = TIMELINE_STAGES.indexOf(order.Status);
+      return '<div class="timeline">' + TIMELINE_STAGES.map(function (stage, i) {
+        var event = events.filter(function (n) { return n.Type === stage; })[0];
+        var dateStr = event ? formatDate(event.CreatedAt) : '';
+        var isFinal = stage === 'Delivered';
+        var state = (i < currentIndex || (i === currentIndex && isFinal)) ? 'done' : (i === currentIndex ? 'current' : 'pending');
+        var icon = state === 'done' ? '✅' : (state === 'current' ? '🔵' : '⬜');
+        var dateHtml = dateStr ? '<span class="timeline-date">— ' + esc(dateStr) + '</span>' : '';
+        var currentTag = state === 'current' ? '<span class="timeline-current-tag">← current</span>' : '';
+        return '<div class="timeline-step ' + state + '"><span class="timeline-icon">' + icon + '</span><span class="timeline-label">' + esc(stage) + dateHtml + currentTag + '</span></div>';
+      }).join('') + '</div>';
+    }
+
+    function loadOrderActionBlock(order) {
+      var block = document.getElementById('orderActionBlock');
+      if (!block) return;
+
+      if (order.Status === 'Quotation Requested') {
+        block.innerHTML = quotationBuilderHtml(order);
+        return;
+      }
+      if (order.Status === 'Quotation Sent') {
+        var orderId = order.OrderID;
+        callApi('getQuotationsByOrder', { adminId: CURRENT_ADMIN.adminId, orderId: order.OrderID }).then(function (res) {
+          if (orderId !== activeOrderId) return;
+          var el = document.getElementById('orderActionBlock');
+          if (!el) return;
+          var q = (res && res.success) ? res.data.quotations[0] : null;
+          el.innerHTML =
+            '<div class="detail-block"><div class="detail-block-title"><i class="ti ti-clock" aria-hidden="true"></i> Awaiting Customer Response</div>' +
+            (q ? '<div class="detail-grid">' + detailField('Total Quoted', formatMoney(q.TotalAmount)) + detailField('Delivery Timeline', q.DeliveryTimeline) + '</div>' : '<p class="detail-empty">Quotation details unavailable.</p>') +
+            '<p class="detail-empty" style="margin-top:10px">The customer needs to approve or reject this quotation before it can move forward.</p></div>';
+        });
+        return;
+      }
+      if (order.Status === 'Delivered' || order.Status === 'Cancelled') {
+        block.innerHTML = '<div class="closed-note"><i class="ti ti-lock" aria-hidden="true"></i> This order is closed — no further action needed.</div>';
+        return;
+      }
+
+      block.innerHTML = statusUpdateHtml(order);
+    }
+
+    // ---------- Quotation builder ----------
+
+    function quotationBuilderHtml(order) {
+      return '' +
+        '<div class="detail-block">' +
+          '<div class="detail-block-title"><i class="ti ti-receipt" aria-hidden="true"></i> Quotation Builder</div>' +
+          '<div class="qb-grid">' +
+            '<div class="qb-field"><label for="qbStitching">Stitching Charges (₹)</label><input id="qbStitching" type="number" min="0" oninput="updateQbTotal()"></div>' +
+            '<div class="qb-field"><label for="qbFabric">Fabric Cost (₹)</label><input id="qbFabric" type="number" min="0" oninput="updateQbTotal()"></div>' +
+            '<div class="qb-field"><label for="qbAdditional">Additional Charges (₹)</label><input id="qbAdditional" type="number" min="0" oninput="updateQbTotal()"></div>' +
+            '<div class="qb-field"><label for="qbTimeline">Delivery Timeline</label><input id="qbTimeline" type="text" placeholder="e.g. 7-10 working days"></div>' +
+            '<div class="qb-field full-width"><label for="qbAdminNotes">Admin Notes <span style="text-transform:none;letter-spacing:0;opacity:.7">(internal only)</span></label><textarea id="qbAdminNotes" rows="2"></textarea></div>' +
+          '</div>' +
+          '<div class="qb-total-row"><span>Total</span><span id="qbTotalDisplay">₹0</span></div>' +
+          '<button type="button" class="btn-primary" style="width:100%" onclick="sendQuotation(\'' + order.OrderID + '\')" id="sendQuotationBtn">' +
+            '<i class="ti ti-send" aria-hidden="true"></i> Send Quotation' +
+          '</button>' +
+          '<p class="form-status" id="quotationStatus" role="status" aria-live="polite"></p>' +
+        '</div>';
+    }
+
+    function updateQbTotal() {
+      var stitching = Number(document.getElementById('qbStitching').value) || 0;
+      var fabric = Number(document.getElementById('qbFabric').value) || 0;
+      var additional = Number(document.getElementById('qbAdditional').value) || 0;
+      document.getElementById('qbTotalDisplay').textContent = formatMoney(stitching + fabric + additional);
+    }
+
+    function sendQuotation(orderId) {
+      var order = allOrders.filter(function (o) { return o.OrderID === orderId; })[0];
+      var user = usersById[order.UserID] || {};
+      var btn = document.getElementById('sendQuotationBtn');
+      var status = document.getElementById('quotationStatus');
+
+      var stitchingCost = Number(document.getElementById('qbStitching').value) || 0;
+      var fabricCost = Number(document.getElementById('qbFabric').value) || 0;
+      var additionalCost = Number(document.getElementById('qbAdditional').value) || 0;
+      var deliveryTimeline = document.getElementById('qbTimeline').value.trim();
+      var adminNotes = document.getElementById('qbAdminNotes').value.trim();
+      var total = stitchingCost + fabricCost + additionalCost;
+
+      if (total <= 0) {
+        setStatus(status, 'Enter at least one charge greater than zero.', 'error');
+        return;
+      }
+
+      btn.disabled = true;
+      setStatus(status, '', '');
+
+      // Opened synchronously so the user gesture carries through to the async response.
+      var waTab = window.open('', '_blank');
+
+      callApi('saveQuotation', {
+        adminId: CURRENT_ADMIN.adminId, orderId: orderId, userId: order.UserID,
+        stitchingCost: stitchingCost, fabricCost: fabricCost, additionalCost: additionalCost,
+        deliveryTimeline: deliveryTimeline, adminNotes: adminNotes
+      }).then(function (res) {
+        if (res && res.success) {
+          if (waTab) {
+            var msg = 'Hi ' + (user.Name || 'there') + '! Your quotation for ' + order.Garment + ' is ready.\n' +
+              'Total: ' + formatMoney(total) + '. Delivery: ' + (deliveryTimeline || 'TBD') + '.\n' +
+              'Please login to approve: ' + LOGIN_URL;
+            waTab.location.href = 'https://wa.me/' + toWhatsAppNumber(user.Phone) + '?text=' + encodeURIComponent(msg);
+          }
+          loadAdminData();
+          closeOrderDetail();
+        } else {
+          if (waTab) waTab.close();
+          setStatus(status, (res && res.error) || 'Something went wrong.', 'error');
+          btn.disabled = false;
+        }
+      }).catch(function () {
+        if (waTab) waTab.close();
+        setStatus(status, "Couldn't reach the server.", 'error');
+        btn.disabled = false;
+      });
+    }
+
+    // ---------- Status update ----------
+
+    function statusUpdateHtml(order) {
+      var nextOptions = (VALID_STATUS_TRANSITIONS[order.Status] || []).concat(['Cancelled']);
+      var optionsHtml = '<option value="">Select new status…</option>' + nextOptions.map(function (s) {
+        return '<option value="' + esc(s) + '">' + esc(s) + '</option>';
+      }).join('');
+
+      return '' +
+        '<div class="detail-block">' +
+          '<div class="detail-block-title"><i class="ti ti-refresh" aria-hidden="true"></i> Update Status</div>' +
+          '<select class="status-select" id="statusSelect" onchange="onStatusSelectChange()">' + optionsHtml + '</select>' +
+          '<div id="photoUploadWrap" style="display:none">' +
+            '<div class="photo-upload-zone">' +
+              '<i class="ti ti-camera" aria-hidden="true"></i>' +
+              '<p>Upload 1-3 photos of the finished piece (JPG/PNG)</p>' +
+              '<input type="file" id="photoInput" accept="image/png,image/jpeg" multiple onchange="handlePhotoSelect(event)">' +
+            '</div>' +
+            '<div class="photo-preview-grid" id="photoPreviewGrid"></div>' +
+          '</div>' +
+          '<button type="button" class="btn-primary" style="width:100%" id="updateStatusBtn" disabled onclick="submitStatusUpdate(\'' + order.OrderID + '\')">' +
+            '<i class="ti ti-check" aria-hidden="true"></i> Update Status' +
+          '</button>' +
+          '<p class="form-status" id="statusUpdateStatus" role="status" aria-live="polite"></p>' +
+        '</div>';
+    }
+
+    function onStatusSelectChange() {
+      var select = document.getElementById('statusSelect');
+      var needsPhoto = select.value === 'Ready for Collection';
+      document.getElementById('photoUploadWrap').style.display = needsPhoto ? 'block' : 'none';
+      updateStatusBtnState();
+    }
+
+    function updateStatusBtnState() {
+      var select = document.getElementById('statusSelect');
+      var btn = document.getElementById('updateStatusBtn');
+      if (!select.value) { btn.disabled = true; return; }
+      if (select.value === 'Ready for Collection') {
+        btn.disabled = pendingPhotoDataUrls.length === 0;
+        return;
+      }
+      btn.disabled = false;
+    }
+
+    function handlePhotoSelect(e) {
+      var files = Array.prototype.slice.call(e.target.files || []).slice(0, 3 - pendingPhotoDataUrls.length);
+      Promise.all(files.map(function (f) { return compressImageFile_(f, 1400, 0.8); }))
+        .then(function (dataUrls) {
+          pendingPhotoDataUrls = pendingPhotoDataUrls.concat(dataUrls).slice(0, 3);
+          renderPhotoPreviews();
+          updateStatusBtnState();
+        });
+      e.target.value = '';
+    }
+
+    function removePhoto(index) {
+      pendingPhotoDataUrls.splice(index, 1);
+      renderPhotoPreviews();
+      updateStatusBtnState();
+    }
+
+    function renderPhotoPreviews() {
+      var grid = document.getElementById('photoPreviewGrid');
+      if (!grid) return;
+      grid.innerHTML = pendingPhotoDataUrls.map(function (url, i) {
+        return '<div class="photo-preview-item"><img src="' + url + '" alt="Preview"><button type="button" class="photo-preview-remove" onclick="removePhoto(' + i + ')" aria-label="Remove">&times;</button></div>';
+      }).join('');
+    }
+
+    function compressImageFile_(file, maxDim, quality) {
+      return new Promise(function (resolve, reject) {
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          var img = new Image();
+          img.onload = function () {
+            var scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+            var canvas = document.createElement('canvas');
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+            resolve(canvas.toDataURL('image/jpeg', quality));
+          };
+          img.onerror = reject;
+          img.src = e.target.result;
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function submitStatusUpdate(orderId) {
+      var order = allOrders.filter(function (o) { return o.OrderID === orderId; })[0];
+      var user = usersById[order.UserID] || {};
+      var select = document.getElementById('statusSelect');
+      var btn = document.getElementById('updateStatusBtn');
+      var status = document.getElementById('statusUpdateStatus');
+      var newStatus = select.value;
+
+      btn.disabled = true;
+      setStatus(status, '', '');
+
+      var waTab = window.open('', '_blank');
+
+      callApi('updateOrderStatus', {
+        adminId: CURRENT_ADMIN.adminId, orderId: orderId, status: newStatus,
+        photos: newStatus === 'Ready for Collection' ? pendingPhotoDataUrls : undefined
+      }).then(function (res) {
+        if (res && res.success) {
+          if (waTab) {
+            var msg = 'Hi ' + (user.Name || 'there') + '! Your order for ' + order.Garment + ' has been updated to: ' + newStatus + '.\nCheck details: ' + LOGIN_URL;
+            waTab.location.href = 'https://wa.me/' + toWhatsAppNumber(user.Phone) + '?text=' + encodeURIComponent(msg);
+          }
+          loadAdminData();
+          closeOrderDetail();
+        } else {
+          if (waTab) waTab.close();
+          setStatus(status, (res && res.error) || 'Something went wrong.', 'error');
+          btn.disabled = false;
+        }
+      }).catch(function () {
+        if (waTab) waTab.close();
+        setStatus(status, "Couldn't reach the server.", 'error');
+        btn.disabled = false;
+      });
+    }
+
+    // ---------- Walk-in profile modal ----------
+
+    function openWalkInModal() {
+      document.getElementById('wiName').value = '';
+      document.getElementById('wiMobile').value = '';
+      document.getElementById('wiEmail').value = '';
+      document.getElementById('wiReason').value = '';
+      var serviceSelect = document.getElementById('wiService');
+      serviceSelect.innerHTML = '<option value="">None yet</option>' + SERVICES.map(function (s) { return '<option value="' + esc(s) + '">' + esc(s) + '</option>'; }).join('');
+      setStatus(document.getElementById('wiStatus'), '', '');
+      document.getElementById('walkInFormView').style.display = 'block';
+      document.getElementById('walkInCredentialsView').style.display = 'none';
+      document.getElementById('walkInModal').classList.add('open');
+    }
+
+    function closeWalkInModal() {
+      document.getElementById('walkInModal').classList.remove('open');
+      loadAdminData();
+    }
+
+    function handleWalkInSubmit(e) {
+      e.preventDefault();
+      var btn = document.getElementById('wiSubmitBtn');
+      var status = document.getElementById('wiStatus');
+      var name = document.getElementById('wiName').value.trim();
+      var mobile = document.getElementById('wiMobile').value.trim();
+      var email = document.getElementById('wiEmail').value.trim();
+      var service = document.getElementById('wiService').value;
+      var reason = document.getElementById('wiReason').value.trim();
+
+      btn.disabled = true;
+      setStatus(status, '', '');
+
+      var waTab = window.open('', '_blank');
+
+      callApi('createWalkInProfile', {
+        adminId: CURRENT_ADMIN.adminId, name: name, mobile: mobile, email: email, service: service, reason: reason
+      }).then(function (res) {
+        if (res && res.success) {
+          showWalkInCredentials(res.data, name);
+          if (waTab) {
+            var msg = 'Hi ' + name + '! Your Manasa Tailor account is ready 🎉\n' +
+              'Login at ' + LOGIN_URL + '\n' +
+              'Email: ' + res.data.email + '\n' +
+              'Password: ' + res.data.password + '\n' +
+              'We look forward to serving you!';
+            waTab.location.href = 'https://wa.me/' + toWhatsAppNumber(mobile) + '?text=' + encodeURIComponent(msg);
+          }
+        } else {
+          if (waTab) waTab.close();
+          setStatus(status, (res && res.error) || 'Something went wrong.', 'error');
+          btn.disabled = false;
+        }
+      }).catch(function () {
+        if (waTab) waTab.close();
+        setStatus(status, "Couldn't reach the server.", 'error');
+        btn.disabled = false;
+      });
+
+      return false;
+    }
+
+    function showWalkInCredentials(data, name) {
+      document.getElementById('walkInFormView').style.display = 'none';
+      document.getElementById('walkInCredentialsView').style.display = 'block';
+      document.getElementById('credentialsBox').innerHTML =
+        credentialRow('Username', data.username) +
+        credentialRow('Password', data.password) +
+        credentialRow('Login Email', data.email);
+    }
+
+    function credentialRow(label, value) {
+      return '' +
+        '<div class="credential-row">' +
+          '<div class="credential-row-text"><span class="credential-row-label">' + esc(label) + '</span><span class="credential-row-value">' + esc(value) + '</span></div>' +
+          '<button type="button" class="credential-copy-btn" data-copy-value="' + esc(value) + '" onclick="copyCredential(this)" aria-label="Copy"><i class="ti ti-copy" aria-hidden="true"></i></button>' +
+        '</div>';
+    }
+
+    // Reads the value back out of a data-attribute rather than embedding it
+    // in the onclick string — a value containing a quote (an email can
+    // legally have one) would otherwise break out of the inline JS literal.
+    function copyCredential(btn) {
+      var text = btn.getAttribute('data-copy-value') || '';
+      var done = function () {
+        var original = btn.innerHTML;
+        btn.innerHTML = '<i class="ti ti-check" aria-hidden="true"></i>';
+        setTimeout(function () { btn.innerHTML = original; }, 1500);
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(function () {});
+      }
+    }
+
+    // ---------- Notification bell ----------
+
+    function notifIcon(type) {
+      if (type === 'New Quotation Request') return 'ti-file-invoice';
+      if (type === 'Customer Approved') return 'ti-circle-check';
+      if (type === 'Revision Requested') return 'ti-refresh';
+      return 'ti-bell';
+    }
+
+    function renderNotifDropdown() {
+      var list = document.getElementById('notifList');
+      if (!notifications.length) {
+        list.innerHTML = '<p class="notif-empty">No notifications yet.</p>';
+        return;
+      }
+      list.innerHTML = notifications.map(function (n) {
+        return '' +
+          '<button type="button" class="notif-item' + (n.IsRead ? '' : ' unread') + '" onclick="handleNotifClick(\'' + n.NotificationID + '\', \'' + (n.OrderID || '') + '\')">' +
+            '<i class="ti ' + notifIcon(n.Type) + ' notif-item-icon" aria-hidden="true"></i>' +
+            '<span class="notif-item-body"><span class="notif-item-msg">' + esc(n.Message) + '</span><span class="notif-item-time">' + formatDate(n.CreatedAt) + '</span></span>' +
+          '</button>';
+      }).join('');
+    }
+
+    function updateNotifBadge() {
+      var unreadCount = notifications.filter(function (n) { return !n.IsRead; }).length;
+      var badge = document.getElementById('notifBadge');
+      if (unreadCount > 0) {
+        badge.textContent = unreadCount > 9 ? '9+' : String(unreadCount);
+        badge.style.display = 'flex';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    function handleNotifClick(notificationId, orderId) {
+      var n = notifications.filter(function (x) { return x.NotificationID === notificationId; })[0];
+      if (n && !n.IsRead) {
+        n.IsRead = true;
+        renderNotifDropdown();
+        updateNotifBadge();
+        callApi('markNotificationRead', { userId: CURRENT_ADMIN.adminId, notificationId: notificationId }).catch(function () {});
+      }
+      document.getElementById('notifDropdown').classList.remove('open');
+      if (orderId) openOrderDetail(orderId);
+    }
+
+    document.getElementById('notifBellBtn').addEventListener('click', function (e) {
+      e.stopPropagation();
+      var dropdown = document.getElementById('notifDropdown');
+      var isOpen = dropdown.classList.toggle('open');
+      document.getElementById('notifBellBtn').setAttribute('aria-expanded', String(isOpen));
+    });
+
+    document.addEventListener('click', function (e) {
+      var wrap = document.querySelector('.notif-wrap');
+      if (wrap && !wrap.contains(e.target)) {
+        document.getElementById('notifDropdown').classList.remove('open');
+        document.getElementById('notifBellBtn').setAttribute('aria-expanded', 'false');
+      }
+    });
+  </script>
+
+</body>
+</html>

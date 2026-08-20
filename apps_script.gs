@@ -13,10 +13,13 @@
  *    Run once. This creates the Users / Orders / Quotations / Measurements
  *    / Notifications / Admin tabs with header rows. Safe to re-run — it
  *    skips tabs that already exist.
- * 4. Open the "Admin" tab and add at least one row by hand (AdminID can be
- *    anything you like, e.g. "admin1") so getAllOrders / updateOrderStatus
- *    have someone to authorize. There's no signup flow for admins on
- *    purpose — that's a follow-up issue.
+ * 4. Set up the one admin account: scroll to ADMIN_BOOTSTRAP_EMAIL /
+ *    ADMIN_BOOTSTRAP_PASSWORD near the bottom of this file, fill them in,
+ *    select "createAdminAccount" in the toolbar dropdown and click Run once.
+ *    That's the email/password admin.html logs in with. Blank
+ *    ADMIN_BOOTSTRAP_PASSWORD out again afterwards so it isn't sitting in
+ *    the script in plain text — re-running with a new password just updates
+ *    the same admin rather than creating a second one.
  * 5. Deploy -> New deployment -> type "Web app".
  *    - Execute as: Me
  *    - Who has access: Anyone
@@ -48,11 +51,21 @@
  *
  * NOTE ON RE-RUNNING setupSheets(): the Quotations tab's columns changed
  * from a single Description/Amount pair to itemized StitchingCost /
- * FabricCost / AdditionalCost / TotalAmount / Notes. Re-running setupSheets()
- * only rewrites the header row, so any pre-existing Quotations rows from an
- * earlier version of this script will end up misaligned under the new
- * headers — clear or migrate that tab's data by hand before redeploying if
- * it has real rows in it.
+ * FabricCost / AdditionalCost / TotalAmount / DeliveryTimeline / AdminNotes.
+ * Re-running setupSheets() only rewrites the header row, so any pre-existing
+ * Quotations rows from an earlier version of this script will end up
+ * misaligned under the new headers — clear or migrate that tab's data by
+ * hand before redeploying if it has real rows in it.
+ *
+ * ADMIN NOTES ARE INTERNAL: Quotations.AdminNotes is stripped out of
+ * getQuotationsByUser's response before it's sent — never add it back there,
+ * since that's the customer-facing endpoint. getQuotationsByOrder (admin-
+ * only) is the one that includes it.
+ *
+ * ORDER PHOTOS: updateOrderStatus uploads photos to a "Manasa Tailor Order
+ * Photos" Drive folder (auto-created) and stores their view URLs in
+ * Orders.PhotoURLs — Drive access is part of Apps Script's default scopes
+ * under "Execute as: Me", no extra API enablement needed.
  */
 
 var SHEET_NAMES = {
@@ -65,12 +78,24 @@ var SHEET_NAMES = {
 };
 
 var SHEET_HEADERS = {
-  Users: ['UserID', 'Name', 'Phone', 'Email', 'PasswordHash', 'Salt', 'CreatedAt', 'City'],
+  Users: ['UserID', 'Name', 'Phone', 'Email', 'PasswordHash', 'Salt', 'CreatedAt', 'City', 'Username'],
   Orders: ['OrderID', 'UserID', 'Garment', 'Purpose', 'Date', 'TimeSlot', 'Notes', 'Status', 'CreatedAt', 'UpdatedAt', 'PhotoURLs', 'HasMeasurements'],
-  Quotations: ['QuotationID', 'OrderID', 'UserID', 'StitchingCost', 'FabricCost', 'AdditionalCost', 'TotalAmount', 'Notes', 'Status', 'CreatedAt', 'UpdatedAt'],
+  Quotations: ['QuotationID', 'OrderID', 'UserID', 'StitchingCost', 'FabricCost', 'AdditionalCost', 'TotalAmount', 'DeliveryTimeline', 'AdminNotes', 'Status', 'CreatedAt', 'UpdatedAt'],
   Measurements: ['MeasurementID', 'UserID', 'Garment', 'MeasurementsJSON', 'CreatedAt', 'UpdatedAt'],
   Notifications: ['NotificationID', 'UserID', 'Message', 'Type', 'IsRead', 'CreatedAt', 'OrderID'],
   Admin: ['AdminID', 'Name', 'Phone', 'Email', 'PasswordHash', 'Salt', 'CreatedAt']
+};
+
+// Admin-driven status transitions (the "Status Update" dropdown in admin.html).
+// Quotation Requested -> Quotation Sent happens only via saveQuotation, and
+// Quotation Sent -> Order Confirmed / Quotation Requested only via
+// respondToQuotation (the customer's approve/reject) — neither goes through
+// this map. 'Cancelled' is allowed as an admin override from any open status.
+var VALID_STATUS_TRANSITIONS = {
+  'Order Confirmed': ['Measurement Taken'],
+  'Measurement Taken': ['Work In Progress'],
+  'Work In Progress': ['Ready for Collection'],
+  'Ready for Collection': ['Delivered']
 };
 
 // Customer-facing order lifecycle. Order status doubles as each timeline
@@ -85,6 +110,7 @@ var ORDER_STATUSES = [
 var ACTIONS = {
   createUser: createUser,
   loginUser: loginUser,
+  loginAdmin: loginAdmin,
   createOrder: createOrder,
   getOrdersByUser: getOrdersByUser,
   getAllOrders: getAllOrders,
@@ -92,10 +118,14 @@ var ACTIONS = {
   saveQuotation: saveQuotation,
   respondToQuotation: respondToQuotation,
   getQuotationsByUser: getQuotationsByUser,
+  getQuotationsByOrder: getQuotationsByOrder,
   saveMeasurements: saveMeasurements,
   getMeasurementsByUser: getMeasurementsByUser,
   getNotifications: getNotifications,
-  markNotificationRead: markNotificationRead
+  markNotificationRead: markNotificationRead,
+  createWalkInProfile: createWalkInProfile,
+  getAllUsers: getAllUsers,
+  getOrderTimeline: getOrderTimeline
 };
 
 /** One-time setup: creates every tab from SHEET_HEADERS if it doesn't already exist. */
@@ -194,6 +224,38 @@ function loginUser(data) {
   return ok_({ userId: user.UserID, name: user.Name, phone: user.Phone, email: user.Email, city: user.City });
 }
 
+function getAllUsers(data) {
+  var adminErr = requireAdmin_(data.adminId);
+  if (adminErr) return adminErr;
+
+  var users = sheetToObjects_(getSheet_(SHEET_NAMES.USERS)).map(omitCredentials_);
+  return ok_({ users: users });
+}
+
+function omitCredentials_(user) {
+  var copy = {};
+  Object.keys(user).forEach(function (key) {
+    if (key !== 'PasswordHash' && key !== 'Salt') copy[key] = user[key];
+  });
+  return copy;
+}
+
+function loginAdmin(data) {
+  var email = (data.email || '').trim().toLowerCase();
+  var password = data.password || '';
+
+  if (!email || !password) {
+    return fail_('Email and password are required');
+  }
+
+  var admin = findAdminByEmail_(email);
+  if (!admin || hashPassword_(password, admin.Salt) !== admin.PasswordHash) {
+    return fail_('Incorrect email or password');
+  }
+
+  return ok_({ adminId: admin.AdminID, name: admin.Name, email: admin.Email });
+}
+
 // ---------- Orders ----------
 
 function createOrder(data) {
@@ -253,6 +315,7 @@ function updateOrderStatus(data) {
 
   var orderId = (data.orderId || '').trim();
   var status = (data.status || '').trim();
+  var photos = data.photos; // array of "data:image/...;base64,..." strings, only for Ready for Collection
 
   if (!orderId || !status) {
     return fail_('orderId and status are required');
@@ -261,13 +324,44 @@ function updateOrderStatus(data) {
     return fail_('Invalid status. Must be one of: ' + ORDER_STATUSES.join(', '));
   }
 
-  var order = setOrderStatus_(orderId, status);
-  if (!order) {
+  var existing = findById_(SHEET_NAMES.ORDERS, 'OrderID', orderId);
+  if (!existing) {
     return fail_('Order not found');
+  }
+  if (!isValidStatusTransition_(existing.row.Status, status)) {
+    return fail_('Cannot move an order from "' + existing.row.Status + '" to "' + status + '"');
+  }
+
+  if (status === 'Ready for Collection') {
+    if (!photos || !photos.length) {
+      return fail_('At least one photo is required when marking an order Ready for Collection');
+    }
+    if (photos.length > 3) {
+      return fail_('You can upload up to 3 photos');
+    }
+  }
+
+  var order = setOrderStatus_(orderId, status);
+
+  var photoWarning = '';
+  if (status === 'Ready for Collection' && photos && photos.length) {
+    try {
+      setOrderPhotoUrls_(orderId, uploadOrderPhotos_(orderId, photos));
+    } catch (err) {
+      photoWarning = 'Status updated, but photo upload failed: ' + (err && err.message ? err.message : String(err));
+    }
   }
 
   createNotification_(order.UserID, 'Your order status has been updated to "' + status + '".', status, orderId);
-  return ok_({ orderId: orderId, status: status });
+  return photoWarning ? fail_(photoWarning) : ok_({ orderId: orderId, status: status });
+}
+
+function isValidStatusTransition_(fromStatus, toStatus) {
+  if (toStatus === 'Cancelled') {
+    return fromStatus !== 'Delivered' && fromStatus !== 'Cancelled';
+  }
+  var allowed = VALID_STATUS_TRANSITIONS[fromStatus];
+  return !!allowed && allowed.indexOf(toStatus) !== -1;
 }
 
 /** Writes a new Status + UpdatedAt onto an order row. Returns the pre-update row, or null if not found. */
@@ -285,9 +379,60 @@ function setOrderStatus_(orderId, status) {
   return found.row;
 }
 
+/**
+ * Order photos are uploaded as base64 and stored in Drive, not the Sheet —
+ * a single Sheet cell caps out around 50,000 characters, which even one
+ * compressed phone photo's base64 easily exceeds. Orders.PhotoURLs just
+ * holds the resulting comma-separated Drive view URLs, matching what it
+ * already expected from earlier (manually-pasted) usage.
+ */
+function uploadOrderPhotos_(orderId, photos) {
+  var folder = getOrderPhotosFolder_();
+  return photos.map(function (photo, i) {
+    var blob = base64ImageToBlob_(photo, 'order-' + orderId + '-' + (i + 1));
+    var file = folder.createFile(blob);
+    file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    return 'https://drive.google.com/uc?export=view&id=' + file.getId();
+  });
+}
+
+function getOrderPhotosFolder_() {
+  var name = 'Manasa Tailor Order Photos';
+  var folders = DriveApp.getFoldersByName(name);
+  return folders.hasNext() ? folders.next() : DriveApp.createFolder(name);
+}
+
+function base64ImageToBlob_(dataUri, filenameBase) {
+  var match = /^data:(image\/(png|jpe?g));base64,(.+)$/i.exec(dataUri || '');
+  if (!match) {
+    throw new Error('Photo must be a base64 PNG or JPEG data URL');
+  }
+  var mimeType = match[1];
+  var ext = mimeType.toLowerCase().indexOf('png') !== -1 ? 'png' : 'jpg';
+  var bytes = Utilities.base64Decode(match[3]);
+  return Utilities.newBlob(bytes, mimeType, filenameBase + '.' + ext);
+}
+
+function setOrderPhotoUrls_(orderId, newUrls) {
+  var found = findById_(SHEET_NAMES.ORDERS, 'OrderID', orderId);
+  if (!found) return;
+
+  var existing = String(found.row.PhotoURLs || '').split(',').map(function (u) { return u.trim(); }).filter(Boolean);
+  var combined = existing.concat(newUrls).slice(0, 3);
+
+  withLock_(function () {
+    var sheet = getSheet_(SHEET_NAMES.ORDERS);
+    var headers = SHEET_HEADERS.Orders;
+    sheet.getRange(found.rowIndex, headers.indexOf('PhotoURLs') + 1).setValue(combined.join(','));
+  });
+}
+
 // ---------- Quotations ----------
 
 function saveQuotation(data) {
+  var adminErr = requireAdmin_(data.adminId);
+  if (adminErr) return adminErr;
+
   var orderId = (data.orderId || '').trim();
   var userId = (data.userId || '').trim();
   var stitchingCost = Number(data.stitchingCost) || 0;
@@ -312,7 +457,8 @@ function saveQuotation(data) {
     FabricCost: fabricCost,
     AdditionalCost: additionalCost,
     TotalAmount: totalAmount,
-    Notes: data.notes || '',
+    DeliveryTimeline: (data.deliveryTimeline || '').trim(),
+    AdminNotes: (data.adminNotes || '').trim(),
     Status: 'Pending',
     CreatedAt: now,
     UpdatedAt: now
@@ -365,6 +511,13 @@ function respondToQuotation(data) {
     newOrderStatus,
     orderId
   );
+  notifyAdmin_(
+    decision === 'approve' ? 'Customer Approved' : 'Revision Requested',
+    decision === 'approve'
+      ? 'A customer approved the quotation for order ' + orderId + '.'
+      : 'A customer requested a revised quotation for order ' + orderId + '.',
+    orderId
+  );
 
   return ok_({ orderId: orderId, quotationId: quotationId, status: newOrderStatus });
 }
@@ -375,8 +528,58 @@ function getQuotationsByUser(data) {
     return fail_('userId is required');
   }
 
+  // AdminNotes is internal-only — strip it before this customer-facing
+  // response leaves the server, not just hide it in the UI.
   var quotations = sheetToObjects_(getSheet_(SHEET_NAMES.QUOTATIONS))
     .filter(function (row) { return row.UserID === userId; })
+    .sort(byCreatedAtDesc_)
+    .map(omitAdminNotes_);
+
+  return ok_({ quotations: quotations });
+}
+
+function omitAdminNotes_(quotation) {
+  var copy = {};
+  Object.keys(quotation).forEach(function (key) {
+    if (key !== 'AdminNotes') copy[key] = quotation[key];
+  });
+  return copy;
+}
+
+/**
+ * Notifications are tagged with OrderID regardless of who they were sent to,
+ * so this returns the full mixed audit trail (customer status updates AND
+ * admin-only events like "New Quotation Request") for one order — useful
+ * for admin.html's timeline, since a customer's own getNotifications only
+ * ever sees rows addressed to their own userId, never another order event.
+ */
+function getOrderTimeline(data) {
+  var adminErr = requireAdmin_(data.adminId);
+  if (adminErr) return adminErr;
+
+  var orderId = (data.orderId || '').trim();
+  if (!orderId) {
+    return fail_('orderId is required');
+  }
+
+  var events = sheetToObjects_(getSheet_(SHEET_NAMES.NOTIFICATIONS))
+    .filter(function (row) { return row.OrderID === orderId; })
+    .sort(byCreatedAtDesc_);
+
+  return ok_({ events: events });
+}
+
+function getQuotationsByOrder(data) {
+  var adminErr = requireAdmin_(data.adminId);
+  if (adminErr) return adminErr;
+
+  var orderId = (data.orderId || '').trim();
+  if (!orderId) {
+    return fail_('orderId is required');
+  }
+
+  var quotations = sheetToObjects_(getSheet_(SHEET_NAMES.QUOTATIONS))
+    .filter(function (row) { return row.OrderID === orderId; })
     .sort(byCreatedAtDesc_);
 
   return ok_({ quotations: quotations });
@@ -533,7 +736,7 @@ function legacyOrderEnquiry_(data) {
 
 // ---------- Shared record creation ----------
 
-function createUserRecord_(name, phone, email, password, city) {
+function createUserRecord_(name, phone, email, password, city, username) {
   var salt = makeSalt_();
   var userId = genId_('USR');
   var record = {
@@ -544,7 +747,8 @@ function createUserRecord_(name, phone, email, password, city) {
     PasswordHash: hashPassword_(password, salt),
     Salt: salt,
     CreatedAt: new Date(),
-    City: city || ''
+    City: city || '',
+    Username: username || ''
   };
   withLock_(function () {
     appendRow_(getSheet_(SHEET_NAMES.USERS), SHEET_HEADERS.Users, record);
@@ -572,6 +776,7 @@ function createOrderRecord_(opts) {
     appendRow_(getSheet_(SHEET_NAMES.ORDERS), SHEET_HEADERS.Orders, record);
   });
   createNotification_(opts.userId, 'Your order for ' + opts.garment + ' has been received.', 'Quotation Requested', record.OrderID);
+  notifyAdmin_('New Quotation Request', 'A new quotation request came in for ' + opts.garment + '.', record.OrderID);
   return record;
 }
 
@@ -589,7 +794,15 @@ function createNotification_(userId, message, type, orderId) {
   });
 }
 
-// ---------- Admin gate ----------
+/** Notifies the boutique's one admin account (if one has been set up yet). */
+function notifyAdmin_(type, message, orderId) {
+  var adminId = getPrimaryAdminId_();
+  if (adminId) {
+    createNotification_(adminId, message, type, orderId);
+  }
+}
+
+// ---------- Admin ----------
 
 function requireAdmin_(adminId) {
   adminId = (adminId || '').trim();
@@ -597,6 +810,123 @@ function requireAdmin_(adminId) {
     return fail_('Unauthorized: valid adminId required');
   }
   return null;
+}
+
+function findAdminByEmail_(email) {
+  var rows = sheetToObjects_(getSheet_(SHEET_NAMES.ADMIN));
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].Email && rows[i].Email.toLowerCase() === email) return rows[i];
+  }
+  return null;
+}
+
+/** The Admin sheet is expected to hold a single row (see createAdminAccount()). */
+function getPrimaryAdminId_() {
+  var rows = sheetToObjects_(getSheet_(SHEET_NAMES.ADMIN));
+  return rows.length ? rows[0].AdminID : null;
+}
+
+function createWalkInProfile(data) {
+  var adminErr = requireAdmin_(data.adminId);
+  if (adminErr) return adminErr;
+
+  var name = (data.name || '').trim();
+  var phone = (data.mobile || '').trim();
+  var email = (data.email || '').trim().toLowerCase();
+  var reason = (data.reason || '').trim();
+  var service = (data.service || '').trim();
+
+  if (!name || !phone || !email) {
+    return fail_('Name, mobile and email are required');
+  }
+  if (findUserByPhone_(phone)) {
+    return fail_('A profile with this mobile number already exists');
+  }
+  if (findUserByEmail_(email)) {
+    return fail_('A profile with this email already exists');
+  }
+
+  var username = generateWalkInUsername_(name, phone);
+  var password = generateWalkInPassword_();
+  var user = createUserRecord_(name, phone, email, password, '', username);
+
+  var orderId = null;
+  if (service) {
+    orderId = createOrderRecord_({ userId: user.UserID, garment: service, purpose: reason, notes: reason }).OrderID;
+  }
+
+  // The generated "Username" is a friendly label for the credentials slip —
+  // actual login (login.html) is email + password, same as self-registered
+  // customers, so the account works through the one login path that exists
+  // rather than needing a second, username-based auth system.
+  return ok_({
+    userId: user.UserID,
+    username: username,
+    password: password,
+    email: email,
+    orderId: orderId
+  });
+}
+
+function generateWalkInUsername_(name, phone) {
+  var firstName = (name.trim().split(/\s+/)[0] || 'guest').toLowerCase().replace(/[^a-z0-9]/g, '') || 'guest';
+  var digits = phone.replace(/\D/g, '');
+  var last4 = digits.length >= 4 ? digits.slice(-4) : ('0000' + digits).slice(-4);
+  return firstName + '_' + last4;
+}
+
+function generateWalkInPassword_() {
+  var digits = '';
+  for (var i = 0; i < 5; i++) digits += Math.floor(Math.random() * 10);
+  return 'MT@' + digits;
+}
+
+/**
+ * One-time admin bootstrap — NOT in the ACTIONS map, so it's never reachable
+ * over the web. Set ADMIN_BOOTSTRAP_EMAIL/NAME/PASSWORD below, run this once
+ * from the Apps Script editor (select it in the toolbar dropdown, click Run),
+ * then blank out ADMIN_BOOTSTRAP_PASSWORD and re-save. Re-running it after
+ * that updates the same admin's password rather than creating a duplicate row.
+ */
+var ADMIN_BOOTSTRAP_NAME = 'Shilpa';
+var ADMIN_BOOTSTRAP_EMAIL = '';
+var ADMIN_BOOTSTRAP_PASSWORD = '';
+
+function createAdminAccount() {
+  if (!ADMIN_BOOTSTRAP_EMAIL || !ADMIN_BOOTSTRAP_PASSWORD) {
+    throw new Error('Set ADMIN_BOOTSTRAP_EMAIL and ADMIN_BOOTSTRAP_PASSWORD at the top of this function before running it.');
+  }
+
+  var email = ADMIN_BOOTSTRAP_EMAIL.trim().toLowerCase();
+  var salt = makeSalt_();
+  var passwordHash = hashPassword_(ADMIN_BOOTSTRAP_PASSWORD, salt);
+  var existing = findAdminByEmail_(email);
+  var sheet = getSheet_(SHEET_NAMES.ADMIN);
+  var headers = SHEET_HEADERS.Admin;
+
+  if (existing) {
+    var found = findById_(SHEET_NAMES.ADMIN, 'AdminID', existing.AdminID);
+    withLock_(function () {
+      sheet.getRange(found.rowIndex, headers.indexOf('PasswordHash') + 1).setValue(passwordHash);
+      sheet.getRange(found.rowIndex, headers.indexOf('Salt') + 1).setValue(salt);
+    });
+    Logger.log('Updated password for existing admin: ' + email);
+    return;
+  }
+
+  var record = {
+    AdminID: genId_('ADM'),
+    Name: ADMIN_BOOTSTRAP_NAME || 'Admin',
+    Phone: '',
+    Email: email,
+    PasswordHash: passwordHash,
+    Salt: salt,
+    CreatedAt: new Date()
+  };
+  withLock_(function () {
+    appendRow_(sheet, headers, record);
+  });
+  Logger.log('Created admin account: ' + email);
 }
 
 // ---------- Sheet helpers ----------
