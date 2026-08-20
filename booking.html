@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Book an Appointment — Manasa Tailor</title>
+  <meta name="description" content="Request a custom stitching quotation from Manasa Tailor — pick a service, share your measurements, and confirm your delivery date.">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✂️</text></svg>">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=Jost:wght@300;400;500&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box }
+
+    :root {
+      --rose: #c9728a;
+      --rose-light: #f5e6eb;
+      --rose-dark: #8b3d52;
+      --gold: #b8924a;
+      --gold-dark: #7f6533;
+      --gold-light: #f7f0e3;
+      --cream: #fdf8f5;
+      --dark: #2c1a20;
+      --muted: #7a5a64;
+      --border: #e8d5da;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      font-family: 'Jost', sans-serif;
+      background: var(--cream);
+      color: var(--dark);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Nav ── */
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 32px;
+      background: white;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: 22px;
+      font-weight: 600;
+      color: var(--rose-dark);
+      letter-spacing: 1px;
+      text-decoration: none;
+    }
+
+    .nav-logo span { color: var(--gold); font-style: italic; }
+
+    .nav-home {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color .2s;
+      font-weight: 500;
+    }
+
+    .nav-home:hover { color: var(--rose-dark); }
+
+    /* ── Buttons ── */
+    .btn-primary {
+      background: var(--rose-dark);
+      color: white;
+      border: none;
+      padding: 12px 28px;
+      font-family: 'Jost', sans-serif;
+      font-size: 12px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      cursor: pointer;
+      border-radius: 2px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background .2s, transform .15s;
+    }
+
+    .btn-primary:hover:not(:disabled) { background: var(--rose); transform: translateY(-1px); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
+    .btn-outline {
+      background: transparent;
+      color: var(--rose-dark);
+      border: 1px solid var(--rose-dark);
+      padding: 12px 28px;
+      font-family: 'Jost', sans-serif;
+      font-size: 12px;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      cursor: pointer;
+      border-radius: 2px;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: background .2s, color .2s, transform .15s;
+    }
+
+    .btn-outline:hover { background: var(--rose-dark); color: white; transform: translateY(-1px); }
+
+    /* ── Booking wrap ── */
+    .booking-wrap { max-width: 760px; margin: 0 auto; padding: 40px 24px 80px; flex: 1; width: 100%; }
+
+    .stepper { display: flex; align-items: flex-start; justify-content: center; margin-bottom: 36px; }
+    .step-item { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+    .step-circle {
+      width: 36px; height: 36px; border-radius: 50%;
+      border: 2px solid var(--border); background: white; color: var(--muted);
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 600;
+      transition: all .2s;
+    }
+    .step-item.active .step-circle { border-color: var(--rose-dark); background: var(--rose-dark); color: white; }
+    .step-item.done .step-circle { border-color: var(--rose); background: var(--rose); color: white; }
+    .step-label { font-size: 10px; letter-spacing: .5px; text-transform: uppercase; color: var(--muted); font-weight: 500; white-space: nowrap; }
+    .step-item.active .step-label { color: var(--rose-dark); font-weight: 600; }
+    .step-line { width: 60px; height: 1px; background: var(--border); margin: 17px 8px 0; }
+    .step-line.done { background: var(--rose); }
+
+    .booking-card { background: white; border: 1px solid var(--border); border-radius: 6px; padding: 36px 32px; }
+
+    .step-title { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 400; color: var(--dark); margin-bottom: 6px; }
+    .step-subtitle { font-size: 13px; color: var(--muted); margin-bottom: 28px; line-height: 1.7; }
+
+    /* Step 1 */
+    .service-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 32px; }
+    .service-card {
+      display: flex; flex-direction: column; align-items: flex-start; gap: 6px;
+      padding: 18px; border: 1px solid var(--border); border-radius: 4px;
+      background: var(--cream); cursor: pointer; text-align: left;
+      font-family: 'Jost', sans-serif;
+      transition: border-color .2s, background .2s, transform .15s;
+    }
+    .service-card:hover { border-color: var(--rose); transform: translateY(-1px); }
+    .service-card.selected { border-color: var(--rose-dark); background: var(--rose-light); }
+    .service-icon { font-size: 26px; }
+    .service-name { font-family: 'Cormorant Garamond', serif; font-size: 17px; color: var(--dark); font-weight: 600; }
+    .service-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+    .step-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 8px; }
+
+    /* Step 2 */
+    .measure-toggle { display: flex; gap: 14px; margin-bottom: 24px; flex-wrap: wrap; }
+    .measure-toggle-btn {
+      flex: 1; min-width: 200px; display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 18px; border: 1.5px solid var(--border); border-radius: 4px; background: var(--cream);
+      color: var(--dark); font-family: 'Jost', sans-serif; font-size: 13px; font-weight: 500;
+      cursor: pointer; transition: border-color .2s, background .2s;
+    }
+    .measure-toggle-btn i { font-size: 18px; color: var(--rose); }
+    .measure-toggle-btn.selected { border-color: var(--rose-dark); background: var(--rose-light); color: var(--rose-dark); }
+
+    .unit-toggle { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; font-size: 12px; color: var(--muted); }
+    .unit-toggle-label { font-weight: 500; text-transform: uppercase; letter-spacing: 1px; font-size: 11px; }
+    .unit-toggle label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+
+    .measure-fields-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px; }
+    .measure-field { display: flex; flex-direction: column; gap: 6px; }
+    .measure-field.full-width { grid-column: 1 / -1; }
+    .measure-field label { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+    .measure-field input, .measure-field textarea {
+      font-family: 'Jost', sans-serif; font-size: 13px; color: var(--dark); background: var(--cream);
+      border: 1px solid var(--border); border-radius: 3px; padding: 10px 12px; outline: none;
+    }
+    .measure-field input:focus, .measure-field textarea:focus { border-color: var(--rose); }
+
+    .store-visit-box {
+      background: var(--gold-light); border: 1px solid var(--border); border-radius: 4px;
+      padding: 18px 20px; font-size: 13px; color: var(--dark); line-height: 1.9; margin-bottom: 24px;
+    }
+    .store-visit-box a { color: var(--rose-dark); font-weight: 500; }
+
+    /* Step 3 */
+    .auth-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px; }
+    .auth-field label { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+    .auth-field label .optional { text-transform: none; letter-spacing: 0; opacity: .7; }
+    .auth-field textarea {
+      font-family: 'Jost', sans-serif; font-size: 13px; color: var(--dark); background: var(--cream);
+      border: 1px solid var(--border); border-radius: 3px; padding: 11px 12px; outline: none; resize: vertical;
+    }
+    .auth-field textarea:focus { border-color: var(--rose); }
+
+    .input-icon { position: relative; display: flex; align-items: center; }
+    .input-icon i { position: absolute; left: 12px; color: var(--rose); font-size: 16px; pointer-events: none; }
+    .input-icon input {
+      width: 100%; font-family: 'Jost', sans-serif; font-size: 13px; color: var(--dark); background: var(--cream);
+      border: 1px solid var(--border); border-radius: 3px; padding: 11px 12px 11px 38px; outline: none;
+    }
+    .input-icon input:focus { border-color: var(--rose); }
+
+    .order-summary-box {
+      background: var(--cream); border: 1px solid var(--border); border-radius: 4px;
+      padding: 18px 20px; margin-bottom: 8px; display: flex; flex-direction: column; gap: 8px;
+    }
+    .summary-row { display: flex; justify-content: space-between; font-size: 13px; }
+    .summary-row span:first-child { color: var(--muted); }
+    .summary-row span:last-child { color: var(--dark); font-weight: 500; }
+
+    .form-status { font-size: 12px; color: var(--muted); min-height: 16px; text-align: center; margin-top: 12px; }
+    .form-status.success { color: var(--rose-dark); font-weight: 500; }
+    .form-status.error { color: #b23b3b; font-weight: 500; }
+
+    /* Confirmation */
+    .confirmation-panel { text-align: center; }
+    .confirmation-icon { font-size: 52px; margin-bottom: 16px; }
+    .confirmation-actions { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; margin-top: 16px; }
+
+    /* ── Footer ── */
+    .footer-mini { background: var(--dark); padding: 20px 32px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+    .footer-mini p { font-size: 11px; color: rgba(255,255,255,.4); }
+    .footer-mini a { font-size: 11px; color: rgba(255,255,255,.5); text-decoration: none; display: flex; align-items: center; gap: 6px; transition: color .2s; }
+    .footer-mini a:hover { color: var(--rose); }
+
+    /* ── Floating WhatsApp ── */
+    .wa-float { position: fixed; bottom: 24px; right: 24px; width: 56px; height: 56px; background: #25d366; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 28px; box-shadow: 0 4px 16px rgba(37,211,102,.45); z-index: 999; text-decoration: none; transition: transform .2s; }
+    .wa-float:hover { transform: scale(1.1); }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      .nav { padding: 14px 18px; }
+      .booking-wrap { padding: 28px 16px 60px; }
+      .booking-card { padding: 26px 20px; }
+      .service-grid, .measure-fields-grid { grid-template-columns: 1fr; }
+      .step-actions { flex-direction: column-reverse; gap: 10px; }
+      .step-actions .btn-primary, .step-actions .btn-outline { width: 100%; }
+      .confirmation-actions { flex-direction: column; }
+      .confirmation-actions a { width: 100%; }
+      .footer-mini { flex-direction: column; text-align: center; }
+    }
+
+    @media (max-width: 420px) {
+      .step-label { display: none; }
+      .step-line { width: 30px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Nav -->
+  <nav class="nav">
+    <a href="index.html" class="nav-logo">Manasa <span>Tailor</span></a>
+    <a href="dashboard.html" class="nav-home">
+      <i class="ti ti-arrow-left" aria-hidden="true"></i>
+      Back to Dashboard
+    </a>
+  </nav>
+
+  <div class="booking-wrap">
+
+    <!-- Stepper -->
+    <div class="stepper">
+      <div class="step-item" data-step="1">
+        <span class="step-circle">1</span>
+        <span class="step-label">Select Service</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="step-item" data-step="2">
+        <span class="step-circle">2</span>
+        <span class="step-label">Measurements</span>
+      </div>
+      <div class="step-line"></div>
+      <div class="step-item" data-step="3">
+        <span class="step-circle">3</span>
+        <span class="step-label">Confirm</span>
+      </div>
+    </div>
+
+    <div class="booking-card">
+
+      <!-- STEP 1: Select Service -->
+      <section class="step-panel" id="stepPanel1">
+        <h2 class="step-title">What would you like stitched?</h2>
+        <p class="step-subtitle">Choose a service to get started.</p>
+        <div class="service-grid" id="serviceGrid"></div>
+        <div class="step-actions">
+          <a href="dashboard.html" class="btn-outline">
+            <i class="ti ti-arrow-left" aria-hidden="true"></i> Back to Dashboard
+          </a>
+          <button type="button" class="btn-primary" id="step1NextBtn" disabled onclick="goToStep(2)">
+            Next <i class="ti ti-arrow-right" aria-hidden="true"></i>
+          </button>
+        </div>
+      </section>
+
+      <!-- STEP 2: Measurements -->
+      <section class="step-panel" id="stepPanel2" style="display:none">
+        <h2 class="step-title">Do you have your measurements?</h2>
+        <p class="step-subtitle">This helps us prepare an accurate quotation.</p>
+
+        <div class="measure-toggle">
+          <button type="button" class="measure-toggle-btn" id="hasMeasurementsYesBtn" onclick="selectHasMeasurements(true)">
+            <i class="ti ti-circle-check" aria-hidden="true"></i> Yes, I have them
+          </button>
+          <button type="button" class="measure-toggle-btn" id="hasMeasurementsNoBtn" onclick="selectHasMeasurements(false)">
+            <i class="ti ti-map-pin" aria-hidden="true"></i> No, I'll visit the store
+          </button>
+        </div>
+
+        <div id="measurementFieldsWrap" style="display:none">
+          <div class="unit-toggle">
+            <span class="unit-toggle-label">Units</span>
+            <label><input type="radio" name="unit" value="in" checked> Inches</label>
+            <label><input type="radio" name="unit" value="cm"> cm</label>
+          </div>
+          <div class="measure-fields-grid" id="measureFieldsGrid"></div>
+        </div>
+
+        <div class="store-visit-box" id="storeVisitBox" style="display:none">
+          📍 No problem! Please visit our store and Shilpa will take your measurements personally.<br>
+          📞 WhatsApp: <a href="https://wa.me/916360194277" target="_blank" rel="noopener">+91 63601 94277</a><br>
+          We'll send you a quotation once measurements are taken.
+        </div>
+
+        <div class="step-actions">
+          <button type="button" class="btn-outline" onclick="goToStep(1)">
+            <i class="ti ti-arrow-left" aria-hidden="true"></i> Back
+          </button>
+          <button type="button" class="btn-primary" id="step2NextBtn" disabled onclick="goToStep(3)">
+            Next <i class="ti ti-arrow-right" aria-hidden="true"></i>
+          </button>
+        </div>
+      </section>
+
+      <!-- STEP 3: Confirm & Submit -->
+      <section class="step-panel" id="stepPanel3" style="display:none">
+        <h2 class="step-title">Confirm & Submit</h2>
+        <p class="step-subtitle">Almost done — review your request below.</p>
+
+        <div class="auth-field">
+          <label for="specialInstructions">Special Instructions <span class="optional">(optional)</span></label>
+          <textarea id="specialInstructions" rows="3" placeholder="Any specific design details, fabric notes, etc."></textarea>
+        </div>
+
+        <div class="auth-field">
+          <label for="preferredDate">Preferred Delivery Date</label>
+          <div class="input-icon">
+            <i class="ti ti-calendar" aria-hidden="true"></i>
+            <input id="preferredDate" type="date">
+          </div>
+        </div>
+
+        <div class="order-summary-box" id="orderSummaryBox"></div>
+
+        <div class="step-actions">
+          <button type="button" class="btn-outline" onclick="goToStep(2)">
+            <i class="ti ti-arrow-left" aria-hidden="true"></i> Back
+          </button>
+          <button type="button" class="btn-primary" id="submitBtn" onclick="submitBooking()">
+            <i class="ti ti-send" aria-hidden="true"></i> Submit Request
+          </button>
+        </div>
+        <p class="form-status" id="submitStatus" role="status" aria-live="polite"></p>
+      </section>
+
+      <!-- CONFIRMATION -->
+      <section class="step-panel confirmation-panel" id="confirmationPanel" style="display:none">
+        <div class="confirmation-icon">🎉</div>
+        <h2 class="step-title">Request Submitted!</h2>
+        <p class="step-subtitle">We'll review and send you a quotation shortly.<br>You'll receive a WhatsApp notification soon.</p>
+        <div class="confirmation-actions">
+          <a href="dashboard.html" class="btn-primary">View My Orders</a>
+          <a href="index.html" class="btn-outline">Back to Home</a>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+  <!-- Floating WhatsApp -->
+  <a href="https://wa.me/916360194277?text=Hi%20Manasa%20Tailor!%20I%20need%20help%20booking%20an%20appointment."
+     target="_blank" rel="noopener" class="wa-float" aria-label="Chat on WhatsApp">
+    <i class="ti ti-brand-whatsapp" aria-hidden="true"></i>
+  </a>
+
+  <!-- Footer -->
+  <footer class="footer-mini">
+    <p>© <span id="yr"></span> Manasa Tailor. All rights reserved.</p>
+    <a href="index.html">
+      <i class="ti ti-needle-thread" aria-hidden="true"></i>
+      Manasa Tailor — Tumkur, Karnataka
+    </a>
+  </footer>
+
+  <script>
+    document.getElementById('yr').textContent = new Date().getFullYear();
+
+    var GOOGLE_SHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbw2KxuusQ5rHQO4hXlpLhPFL2DtrWQeX7pnTVud4w9w4TL6bH1w4vYao1sPjxXWQKycMg/exec";
+    var USER_STORAGE_KEY = 'manasaUser';
+    var ADMIN_WHATSAPP = '916360194277';
+
+    var SERVICES = [
+      { key: 'Saree Blouse', icon: '✂️', desc: 'Custom blouse stitching' },
+      { key: 'Salwar / Churidar Set', icon: '👗', desc: 'Full set or individual pieces' },
+      { key: 'Gown', icon: '🎀', desc: 'Party wear / occasion gown' },
+      { key: 'Kurti / Top', icon: '👚', desc: 'Casual or formal tops' },
+      { key: 'Kids Frock', icon: '🌸', desc: 'Girls dresses and frocks' },
+      { key: 'Alterations', icon: '🪡', desc: 'Modify existing garments' }
+    ];
+
+    var MEASUREMENT_FIELDS = {
+      'Saree Blouse': ['Bust', 'Waist', 'Shoulder Width', 'Sleeve Length', 'Back Length', 'Front Length', 'Neck Depth (Front)', 'Neck Depth (Back)'],
+      'Salwar / Churidar Set': ['Bust', 'Waist', 'Hip', 'Shoulder Width', 'Sleeve Length', 'Kurta Length', 'Salwar Length', 'Inseam'],
+      'Gown': ['Bust', 'Waist', 'Hip', 'Shoulder Width', 'Sleeve Length', 'Total Length', 'Back Length'],
+      'Kurti / Top': ['Bust', 'Waist', 'Hip', 'Shoulder Width', 'Sleeve Length', 'Kurti Length'],
+      'Kids Frock': ['Chest', 'Waist', 'Hip', 'Shoulder Width', 'Sleeve Length', 'Dress Length', 'Age (for reference)']
+    };
+
+    var CURRENT_USER = null;
+    var currentStep = 1;
+    var state = { service: null, hasMeasurements: null, unit: 'in' };
+
+    // ---------- Session guard ----------
+
+    (function guardSession() {
+      try {
+        CURRENT_USER = JSON.parse(localStorage.getItem(USER_STORAGE_KEY) || 'null');
+      } catch (err) {
+        CURRENT_USER = null;
+      }
+      if (!CURRENT_USER || !CURRENT_USER.userId) {
+        window.location.replace('login.html');
+      }
+    })();
+
+    // ---------- Helpers ----------
+
+    function esc(str) {
+      return String(str === null || str === undefined ? '' : str).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+
+    function setStatus(el, message, type) {
+      el.textContent = message;
+      el.className = 'form-status' + (type ? ' ' + type : '');
+    }
+
+    // Apps Script web apps don't handle CORS preflight, so text/plain keeps
+    // this a "simple request" and avoids an OPTIONS call the backend can't answer.
+    function callApi(action, payload) {
+      var body = { action: action };
+      for (var key in payload) body[key] = payload[key];
+      return fetch(GOOGLE_SHEET_WEBAPP_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(body)
+      }).then(function (res) { return res.json(); });
+    }
+
+    // ---------- Step 1: Select Service ----------
+
+    function renderServiceGrid() {
+      var grid = document.getElementById('serviceGrid');
+      grid.innerHTML = SERVICES.map(function (s, i) {
+        return '' +
+          '<button type="button" class="service-card" id="serviceCard' + i + '" onclick="selectService(' + i + ')">' +
+            '<span class="service-icon">' + s.icon + '</span>' +
+            '<span class="service-name">' + esc(s.key) + '</span>' +
+            '<span class="service-desc">' + esc(s.desc) + '</span>' +
+          '</button>';
+      }).join('');
+    }
+
+    function selectService(index) {
+      state.service = SERVICES[index].key;
+      SERVICES.forEach(function (s, i) {
+        document.getElementById('serviceCard' + i).classList.toggle('selected', i === index);
+      });
+      document.getElementById('step1NextBtn').disabled = false;
+    }
+
+    // ---------- Step 2: Measurements ----------
+
+    function selectHasMeasurements(val) {
+      state.hasMeasurements = val;
+      renderStep2();
+    }
+
+    function renderStep2() {
+      document.getElementById('hasMeasurementsYesBtn').classList.toggle('selected', state.hasMeasurements === true);
+      document.getElementById('hasMeasurementsNoBtn').classList.toggle('selected', state.hasMeasurements === false);
+
+      var fieldsWrap = document.getElementById('measurementFieldsWrap');
+      var storeBox = document.getElementById('storeVisitBox');
+
+      if (state.hasMeasurements === true) {
+        renderMeasurementFields();
+        fieldsWrap.style.display = 'block';
+        storeBox.style.display = 'none';
+      } else if (state.hasMeasurements === false) {
+        fieldsWrap.style.display = 'none';
+        storeBox.style.display = 'block';
+      } else {
+        fieldsWrap.style.display = 'none';
+        storeBox.style.display = 'none';
+      }
+      updateStep2NextState();
+    }
+
+    function renderMeasurementFields() {
+      var grid = document.getElementById('measureFieldsGrid');
+      var unitToggle = document.querySelector('.unit-toggle');
+
+      if (state.service === 'Alterations') {
+        unitToggle.style.display = 'none';
+        grid.innerHTML =
+          '<div class="measure-field full-width">' +
+            '<label for="alterationsDesc">Describe what needs to be altered</label>' +
+            '<textarea id="alterationsDesc" rows="4" oninput="updateStep2NextState()"></textarea>' +
+          '</div>';
+        return;
+      }
+
+      unitToggle.style.display = 'flex';
+      var fields = MEASUREMENT_FIELDS[state.service] || [];
+      grid.innerHTML = fields.map(function (label) {
+        var isAge = label.indexOf('Age') === 0;
+        var fieldId = 'm_' + label.replace(/[^a-zA-Z0-9]/g, '');
+        var unitSuffix = isAge ? '' : ' <span class="unit-suffix">(' + state.unit + ')</span>';
+        return '' +
+          '<div class="measure-field">' +
+            '<label for="' + fieldId + '">' + esc(label) + unitSuffix + '</label>' +
+            '<input id="' + fieldId + '" type="' + (isAge ? 'number' : 'text') + '" data-label="' + esc(label) + '" oninput="updateStep2NextState()">' +
+          '</div>';
+      }).join('');
+    }
+
+    document.querySelectorAll('input[name="unit"]').forEach(function (radio) {
+      radio.addEventListener('change', function () {
+        state.unit = this.value;
+        document.querySelectorAll('.unit-suffix').forEach(function (el) { el.textContent = '(' + state.unit + ')'; });
+      });
+    });
+
+    function updateStep2NextState() {
+      var nextBtn = document.getElementById('step2NextBtn');
+      if (state.hasMeasurements === null) { nextBtn.disabled = true; return; }
+      if (state.hasMeasurements === false) { nextBtn.disabled = false; return; }
+
+      if (state.service === 'Alterations') {
+        var desc = document.getElementById('alterationsDesc');
+        nextBtn.disabled = !(desc && desc.value.trim());
+        return;
+      }
+
+      var inputs = document.querySelectorAll('#measureFieldsGrid input');
+      var allFilled = inputs.length > 0;
+      inputs.forEach(function (inp) { if (!inp.value.trim()) allFilled = false; });
+      nextBtn.disabled = !allFilled;
+    }
+
+    function collectMeasurements() {
+      if (state.hasMeasurements !== true) return {};
+
+      if (state.service === 'Alterations') {
+        var desc = document.getElementById('alterationsDesc');
+        var val = desc ? desc.value.trim() : '';
+        return val ? { description: val } : {};
+      }
+
+      var result = {};
+      document.querySelectorAll('#measureFieldsGrid input').forEach(function (inp) {
+        var label = inp.getAttribute('data-label');
+        if (inp.value.trim()) result[label] = inp.value.trim();
+      });
+      if (Object.keys(result).length) result.unit = state.unit;
+      return result;
+    }
+
+    // ---------- Step 3: Confirm & Submit ----------
+
+    function renderStep3() {
+      var box = document.getElementById('orderSummaryBox');
+      box.innerHTML =
+        '<div class="summary-row"><span>Service</span><span>' + esc(state.service) + '</span></div>' +
+        '<div class="summary-row"><span>Measurements</span><span>' + (state.hasMeasurements ? 'Provided' : "Will visit store") + '</span></div>';
+
+      var dateInput = document.getElementById('preferredDate');
+      var tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      dateInput.min = tomorrow.toISOString().split('T')[0];
+    }
+
+    function submitBooking() {
+      var btn = document.getElementById('submitBtn');
+      var status = document.getElementById('submitStatus');
+      var preferredDate = document.getElementById('preferredDate').value;
+      var specialInstructions = document.getElementById('specialInstructions').value.trim();
+
+      if (!preferredDate) {
+        setStatus(status, 'Please choose a preferred delivery date.', 'error');
+        return;
+      }
+      var todayStr = new Date().toISOString().split('T')[0];
+      if (preferredDate <= todayStr) {
+        setStatus(status, 'Preferred delivery date must be a future date.', 'error');
+        return;
+      }
+
+      var measurements = collectMeasurements();
+
+      // Opened synchronously (still inside the click handler) so it carries the
+      // user-gesture that lets browsers allow it; its URL is filled in once the
+      // order is confirmed, and it's closed again if the request fails.
+      var waTab = window.open('', '_blank');
+
+      btn.disabled = true;
+      setStatus(status, '', '');
+
+      callApi('createOrder', {
+        userId: CURRENT_USER.userId,
+        service: state.service,
+        measurements: measurements,
+        hasMeasurements: state.hasMeasurements === true,
+        specialInstructions: specialInstructions,
+        preferredDate: preferredDate,
+        status: 'Quotation Requested'
+      }).then(function (res) {
+        if (res && res.success) {
+          if (waTab) waTab.location.href = buildAdminWhatsAppUrl();
+          showConfirmation();
+        } else {
+          if (waTab) waTab.close();
+          setStatus(status, (res && res.error) || 'Something went wrong. Please try again.', 'error');
+          btn.disabled = false;
+        }
+      }).catch(function () {
+        if (waTab) waTab.close();
+        setStatus(status, "Couldn't reach the server. Please check your connection and try again.", 'error');
+        btn.disabled = false;
+      });
+    }
+
+    function buildAdminWhatsAppUrl() {
+      var msg = 'New quotation request from ' + (CURRENT_USER.name || 'a customer') + '!\n' +
+        'Service: ' + state.service + '\n' +
+        'Has Measurements: ' + (state.hasMeasurements ? 'Yes' : 'No') + '\n' +
+        'Please check the admin dashboard.';
+      return 'https://wa.me/' + ADMIN_WHATSAPP + '?text=' + encodeURIComponent(msg);
+    }
+
+    function showConfirmation() {
+      document.querySelectorAll('.step-panel').forEach(function (p) { p.style.display = 'none'; });
+      document.getElementById('confirmationPanel').style.display = 'block';
+      document.querySelector('.stepper').style.display = 'none';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // ---------- Step navigation ----------
+
+    function goToStep(n) {
+      currentStep = n;
+      for (var i = 1; i <= 3; i++) {
+        document.getElementById('stepPanel' + i).style.display = (i === n) ? 'block' : 'none';
+      }
+      updateStepper(n);
+      if (n === 2) renderStep2();
+      if (n === 3) renderStep3();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function updateStepper(n) {
+      for (var i = 1; i <= 3; i++) {
+        var item = document.querySelector('.step-item[data-step="' + i + '"]');
+        item.classList.toggle('active', i === n);
+        item.classList.toggle('done', i < n);
+      }
+      document.querySelectorAll('.step-line').forEach(function (line, idx) {
+        line.classList.toggle('done', (idx + 1) < n);
+      });
+    }
+
+    // ---------- Init ----------
+
+    renderServiceGrid();
+    updateStepper(1);
+  </script>
+
+</body>
+</html>
