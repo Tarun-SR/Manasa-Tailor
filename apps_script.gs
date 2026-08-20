@@ -66,7 +66,7 @@ var SHEET_NAMES = {
 
 var SHEET_HEADERS = {
   Users: ['UserID', 'Name', 'Phone', 'Email', 'PasswordHash', 'Salt', 'CreatedAt', 'City'],
-  Orders: ['OrderID', 'UserID', 'Garment', 'Purpose', 'Date', 'TimeSlot', 'Notes', 'Status', 'CreatedAt', 'UpdatedAt', 'PhotoURLs'],
+  Orders: ['OrderID', 'UserID', 'Garment', 'Purpose', 'Date', 'TimeSlot', 'Notes', 'Status', 'CreatedAt', 'UpdatedAt', 'PhotoURLs', 'HasMeasurements'],
   Quotations: ['QuotationID', 'OrderID', 'UserID', 'StitchingCost', 'FabricCost', 'AdditionalCost', 'TotalAmount', 'Notes', 'Status', 'CreatedAt', 'UpdatedAt'],
   Measurements: ['MeasurementID', 'UserID', 'Garment', 'MeasurementsJSON', 'CreatedAt', 'UpdatedAt'],
   Notifications: ['NotificationID', 'UserID', 'Message', 'Type', 'IsRead', 'CreatedAt', 'OrderID'],
@@ -198,16 +198,31 @@ function loginUser(data) {
 
 function createOrder(data) {
   var userId = (data.userId || '').trim();
-  var garment = (data.garment || '').trim();
+  var garment = (data.service || '').trim();
 
   if (!userId || !garment) {
-    return fail_('userId and garment are required');
+    return fail_('userId and service are required');
   }
   if (!findById_(SHEET_NAMES.USERS, 'UserID', userId)) {
     return fail_('User not found');
   }
 
-  var order = createOrderRecord_(userId, garment, data.purpose, data.date, data.slot, data.notes);
+  var hasMeasurements = !!data.hasMeasurements;
+  if (hasMeasurements && data.measurements && typeof data.measurements === 'object' && Object.keys(data.measurements).length) {
+    saveMeasurementsRecord_(userId, garment, data.measurements);
+  }
+
+  // Status is always server-set to 'Quotation Requested' on creation — a
+  // client-supplied status is never trusted, even though the booking form
+  // sends one for clarity.
+  var order = createOrderRecord_({
+    userId: userId,
+    garment: garment,
+    notes: data.specialInstructions,
+    date: data.preferredDate,
+    hasMeasurements: hasMeasurements
+  });
+
   return ok_({ orderId: order.OrderID });
 }
 
@@ -381,6 +396,12 @@ function saveMeasurements(data) {
     return fail_('User not found');
   }
 
+  saveMeasurementsRecord_(userId, garment, measurements);
+  return ok_({ saved: true });
+}
+
+/** Upserts a Measurements row for (userId, garment). Shared by saveMeasurements and createOrder. */
+function saveMeasurementsRecord_(userId, garment, measurements) {
   var sheet = getSheet_(SHEET_NAMES.MEASUREMENTS);
   var headers = SHEET_HEADERS.Measurements;
   var rows = sheetToObjects_(sheet);
@@ -406,8 +427,6 @@ function saveMeasurements(data) {
       sheet.getRange(rowIndex, headers.indexOf('UpdatedAt') + 1).setValue(now);
     }
   });
-
-  return ok_({ saved: true });
 }
 
 function getMeasurementsByUser(data) {
@@ -501,7 +520,14 @@ function legacyOrderEnquiry_(data) {
     user = createUserRecord_(name || 'Guest', phone, '', Utilities.getUuid(), '');
   }
 
-  var order = createOrderRecord_(user.UserID, garment, data.purpose, data.date, data.slot, data.notes);
+  var order = createOrderRecord_({
+    userId: user.UserID,
+    garment: garment,
+    purpose: data.purpose,
+    date: data.date,
+    slot: data.slot,
+    notes: data.notes
+  });
   return ok_({ orderId: order.OrderID });
 }
 
@@ -526,25 +552,26 @@ function createUserRecord_(name, phone, email, password, city) {
   return record;
 }
 
-function createOrderRecord_(userId, garment, purpose, date, slot, notes) {
+function createOrderRecord_(opts) {
   var now = new Date();
   var record = {
     OrderID: genId_('ORD'),
-    UserID: userId,
-    Garment: garment,
-    Purpose: purpose || '',
-    Date: date || '',
-    TimeSlot: slot || '',
-    Notes: notes || '',
+    UserID: opts.userId,
+    Garment: opts.garment,
+    Purpose: opts.purpose || '',
+    Date: opts.date || '',
+    TimeSlot: opts.slot || '',
+    Notes: opts.notes || '',
     Status: 'Quotation Requested',
     CreatedAt: now,
     UpdatedAt: now,
-    PhotoURLs: ''
+    PhotoURLs: '',
+    HasMeasurements: opts.hasMeasurements ? 'Yes' : 'No'
   };
   withLock_(function () {
     appendRow_(getSheet_(SHEET_NAMES.ORDERS), SHEET_HEADERS.Orders, record);
   });
-  createNotification_(userId, 'Your order for ' + garment + ' has been received.', 'Quotation Requested', record.OrderID);
+  createNotification_(opts.userId, 'Your order for ' + opts.garment + ' has been received.', 'Quotation Requested', record.OrderID);
   return record;
 }
 
