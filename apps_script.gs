@@ -125,7 +125,9 @@ var ACTIONS = {
   markNotificationRead: markNotificationRead,
   createWalkInProfile: createWalkInProfile,
   getAllUsers: getAllUsers,
-  getOrderTimeline: getOrderTimeline
+  getOrderTimeline: getOrderTimeline,
+  updateUserProfile: updateUserProfile,
+  changePassword: changePassword
 };
 
 /** One-time setup: creates every tab from SHEET_HEADERS if it doesn't already exist. */
@@ -254,6 +256,68 @@ function loginAdmin(data) {
   }
 
   return ok_({ adminId: admin.AdminID, name: admin.Name, email: admin.Email });
+}
+
+function updateUserProfile(data) {
+  var userId = (data.userId || '').trim();
+  var name = (data.name || '').trim();
+  var mobile = (data.mobile || '').trim();
+  var city = (data.city || '').trim();
+
+  if (!userId || !name || !mobile) {
+    return fail_('Name and mobile are required');
+  }
+
+  var found = findById_(SHEET_NAMES.USERS, 'UserID', userId);
+  if (!found) {
+    return fail_('User not found');
+  }
+
+  var existingPhone = findUserByPhone_(mobile);
+  if (existingPhone && existingPhone.UserID !== userId) {
+    return fail_('Another account already uses this mobile number');
+  }
+
+  withLock_(function () {
+    var sheet = getSheet_(SHEET_NAMES.USERS);
+    var headers = SHEET_HEADERS.Users;
+    sheet.getRange(found.rowIndex, headers.indexOf('Name') + 1).setValue(name);
+    sheet.getRange(found.rowIndex, headers.indexOf('Phone') + 1).setValue(mobile);
+    sheet.getRange(found.rowIndex, headers.indexOf('City') + 1).setValue(city);
+  });
+
+  return ok_({ userId: userId, name: name, mobile: mobile, city: city });
+}
+
+function changePassword(data) {
+  var userId = (data.userId || '').trim();
+  var currentPassword = data.currentPassword || '';
+  var newPassword = data.newPassword || '';
+
+  if (!userId || !currentPassword || !newPassword) {
+    return fail_('Current password and new password are required');
+  }
+  if (newPassword.length < 8) {
+    return fail_('New password must be at least 8 characters');
+  }
+
+  var found = findById_(SHEET_NAMES.USERS, 'UserID', userId);
+  if (!found) {
+    return fail_('User not found');
+  }
+  if (hashPassword_(currentPassword, found.row.Salt) !== found.row.PasswordHash) {
+    return fail_('Current password is incorrect');
+  }
+
+  var newSalt = makeSalt_();
+  withLock_(function () {
+    var sheet = getSheet_(SHEET_NAMES.USERS);
+    var headers = SHEET_HEADERS.Users;
+    sheet.getRange(found.rowIndex, headers.indexOf('PasswordHash') + 1).setValue(hashPassword_(newPassword, newSalt));
+    sheet.getRange(found.rowIndex, headers.indexOf('Salt') + 1).setValue(newSalt);
+  });
+
+  return ok_({ userId: userId });
 }
 
 // ---------- Orders ----------
