@@ -416,12 +416,21 @@
     var GOOGLE_SHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbw2KxuusQ5rHQO4hXlpLhPFL2DtrWQeX7pnTVud4w9w4TL6bH1w4vYao1sPjxXWQKycMg/exec";
     var USER_STORAGE_KEY = 'manasaUser';
 
-    // If already logged in, skip straight to the dashboard.
+    // Only ever redirect to one of our own pages — trusting an arbitrary
+    // ?redirect= value would let someone craft a link that bounces a
+    // freshly-logged-in customer straight to an external phishing page.
+    var REDIRECT_ALLOWLIST = ['booking.html', 'dashboard.html'];
+    function getRedirectTarget() {
+      var requested = new URLSearchParams(window.location.search).get('redirect');
+      return REDIRECT_ALLOWLIST.indexOf(requested) !== -1 ? requested : 'dashboard.html';
+    }
+
+    // If already logged in, skip straight to the destination.
     (function redirectIfLoggedIn() {
       try {
         var existing = JSON.parse(localStorage.getItem(USER_STORAGE_KEY) || 'null');
         if (existing && existing.userId) {
-          window.location.replace('dashboard.html');
+          window.location.replace(getRedirectTarget());
         }
       } catch (err) {
         localStorage.removeItem(USER_STORAGE_KEY);
@@ -463,7 +472,7 @@
         mobile: user.phone,
         city: user.city || ''
       }));
-      window.location.href = 'dashboard.html';
+      window.location.href = getRedirectTarget();
     }
 
     function handleRegister(e) {
