@@ -319,17 +319,7 @@
       return formatDate(value);
     }
 
-    // Apps Script web apps don't handle CORS preflight, so text/plain keeps
-    // this a "simple request" and avoids an OPTIONS call the backend can't answer.
-    function callApi(action, payload) {
-      var body = { action: action };
-      for (var key in payload) body[key] = payload[key];
-      return fetch(CONFIG.WEBAPP_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify(body)
-      }).then(function (res) { return res.json(); });
-    }
+    // callApi() is defined once, shared, in config.js.
 
     // ---------- Personal information ----------
 

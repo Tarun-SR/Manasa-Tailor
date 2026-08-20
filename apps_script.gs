@@ -42,6 +42,25 @@
  *   { success: true,  data: {...} }
  *   { success: false, error: "message" }
  *
+ * GET IS THE PRIMARY TRANSPORT — every frontend page's shared callApi()
+ * (in config.js) calls this over GET, not POST. Confirmed via live browser
+ * testing (not just header inspection, which can't validate a browser's
+ * actual CORS enforcement) that POST to this deployment's Web App URL
+ * doesn't reliably make it back to the caller as readable JSON, while GET
+ * does. Because of that, every value crosses as a URL string: object/array
+ * params (measurements, photos) arrive JSON-stringified and are parsed back
+ * out with parseMaybeJson_, and booleans arrive as the literal strings
+ * "true"/"false" rather than real booleans, parsed with parseBool_ — a
+ * naive `!!data.someBoolean` check would treat the string "false" as
+ * truthy. Apply both helpers to any new action that takes an object, array,
+ * or boolean param.
+ *
+ * The one exception is updateOrderStatus's photo upload (admin.html) — up
+ * to 3 base64 images can exceed this endpoint's query-string ceiling
+ * (confirmed failing somewhere between 8KB and 16KB), so that call stays on
+ * a fire-and-forget no-cors POST instead, and the frontend can't read a
+ * definitive success/failure from it — it just refetches state afterwards.
+ *
  * POST bodies with no `action` are treated as legacy order-enquiry
  * submissions from the original single-sheet version of this script (see
  * legacyOrderEnquiry_), so the live booking form keeps working unchanged.
@@ -341,9 +360,10 @@ function createOrder(data) {
     return fail_('User not found');
   }
 
-  var hasMeasurements = !!data.hasMeasurements;
-  if (hasMeasurements && data.measurements && typeof data.measurements === 'object' && Object.keys(data.measurements).length) {
-    saveMeasurementsRecord_(userId, garment, data.measurements);
+  var hasMeasurements = parseBool_(data.hasMeasurements);
+  var measurementsObj = parseMaybeJson_(data.measurements);
+  if (hasMeasurements && measurementsObj && Object.keys(measurementsObj).length) {
+    saveMeasurementsRecord_(userId, garment, measurementsObj);
   }
 
   // Status is always server-set to 'Quotation Requested' on creation — a
@@ -387,7 +407,7 @@ function updateOrderStatus(data) {
 
   var orderId = (data.orderId || '').trim();
   var status = (data.status || '').trim();
-  var photos = data.photos; // array of "data:image/...;base64,..." strings, only for Ready for Collection
+  var photos = parseMaybeJson_(data.photos); // array of "data:image/...;base64,..." strings, only for Ready for Collection
 
   if (!orderId || !status) {
     return fail_('orderId and status are required');
@@ -662,9 +682,9 @@ function getQuotationsByOrder(data) {
 function saveMeasurements(data) {
   var userId = (data.userId || '').trim();
   var garment = (data.garment || '').trim();
-  var measurements = data.measurements;
+  var measurements = parseMaybeJson_(data.measurements);
 
-  if (!userId || !garment || !measurements || typeof measurements !== 'object') {
+  if (!userId || !garment || !measurements || !Object.keys(measurements).length) {
     return fail_('userId, garment and a measurements object are required');
   }
   if (!findById_(SHEET_NAMES.USERS, 'UserID', userId)) {
@@ -733,7 +753,7 @@ function getNotifications(data) {
   var headers = SHEET_HEADERS.Notifications;
   var rows = sheetToObjects_(sheet);
 
-  if (data.markAllRead) {
+  if (parseBool_(data.markAllRead)) {
     withLock_(function () {
       rows.forEach(function (row, i) {
         if (row.UserID === userId && !row.IsRead) {
@@ -746,10 +766,11 @@ function getNotifications(data) {
     });
   }
 
+  var unreadOnly = parseBool_(data.unreadOnly);
   var notifications = rows
     .filter(function (row) {
       if (row.UserID !== userId) return false;
-      if (data.unreadOnly) return !row.IsRead;
+      if (unreadOnly) return !row.IsRead;
       return true;
     })
     .sort(byCreatedAtDesc_);
@@ -1068,6 +1089,36 @@ function withLock_(fn) {
 
 function byCreatedAtDesc_(a, b) {
   return new Date(b.CreatedAt) - new Date(a.CreatedAt);
+}
+
+/**
+ * GET query params always arrive as strings (doGet -> e.parameter), unlike
+ * POST's JSON.parse(e.postData.contents) which preserves real types — so a
+ * boolean param sent over GET shows up here as the *string* "false", which
+ * is still truthy in a naive `!!data.x` check. Use this instead anywhere a
+ * param is expected to carry a real boolean.
+ */
+function parseBool_(value) {
+  return value === true || value === 'true';
+}
+
+/**
+ * Same story for object/array params (measurements, photos): over GET
+ * they're JSON-stringified into the query string by the client and arrive
+ * here as a string that needs parsing back out, whereas POST could already
+ * hand over a real object. Returns null if value isn't already an
+ * object/array and doesn't parse as one.
+ */
+function parseMaybeJson_(value) {
+  if (value && typeof value === 'object') return value;
+  if (typeof value === 'string' && value.trim()) {
+    try {
+      return JSON.parse(value);
+    } catch (err) {
+      return null;
+    }
+  }
+  return null;
 }
 
 // ---------- ID + password helpers ----------
