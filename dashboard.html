@@ -65,7 +65,8 @@
 
     .nav-right { display: flex; align-items: center; gap: 16px; }
 
-    .user-chip { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--dark); font-weight: 500; }
+    .user-chip { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--dark); font-weight: 500; text-decoration: none; transition: color .2s; }
+    .user-chip:hover { color: var(--rose-dark); }
     .user-chip i { color: var(--rose); font-size: 18px; }
 
     .btn-primary {
@@ -309,7 +310,16 @@
     .timeline-cancelled { display: flex; align-items: center; gap: 8px; color: #b23b3b; font-size: 13px; font-weight: 500; }
 
     .photo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
-    .photo-grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 3px; border: 1px solid var(--border); }
+    .photo-thumb { padding: 0; border: none; background: none; cursor: pointer; aspect-ratio: 1; border-radius: 3px; overflow: hidden; }
+    .photo-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 3px; border: 1px solid var(--border); transition: transform .15s; }
+    .photo-thumb:hover img { transform: scale(1.04); }
+
+    /* ── Lightbox ── */
+    .lightbox { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.88); z-index: 1000; align-items: center; justify-content: center; padding: 20px; }
+    .lightbox.open { display: flex; }
+    .lightbox img { max-width: 90vw; max-height: 88vh; object-fit: contain; border-radius: 4px; }
+    .lightbox-close { position: fixed; top: 16px; right: 20px; color: white; font-size: 32px; cursor: pointer; background: none; border: none; line-height: 1; opacity: .8; }
+    .lightbox-close:hover { opacity: 1; }
 
     /* ── Footer ── */
     .footer-mini { background: var(--dark); padding: 20px 32px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
@@ -358,10 +368,10 @@
           </div>
         </div>
       </div>
-      <div class="user-chip">
+      <a href="profile.html" class="user-chip" title="My Profile">
         <i class="ti ti-user-circle" aria-hidden="true"></i>
         <span id="userNameChip">—</span>
-      </div>
+      </a>
       <button type="button" class="btn-outline nav-logout" onclick="logout()">
         <i class="ti ti-logout" aria-hidden="true"></i> <span>Logout</span>
       </button>
@@ -405,6 +415,12 @@
       </div>
     </section>
   </main>
+
+  <!-- Lightbox -->
+  <div class="lightbox" id="lightbox" onclick="closeLightbox(event)">
+    <button type="button" class="lightbox-close" onclick="closeLightbox()" aria-label="Close"><i class="ti ti-x" aria-hidden="true"></i></button>
+    <img id="lightboxImg" src="" alt="Your outfit photo, full size">
+  </div>
 
   <!-- Floating WhatsApp -->
   <a href="https://wa.me/916360194277?text=Hi%20Manasa%20Tailor!%20I%20have%20a%20question%20about%20my%20order."
@@ -463,6 +479,23 @@
     function firstName(fullName) {
       return (fullName || '').trim().split(/\s+/)[0] || 'there';
     }
+
+    // ---------- Lightbox ----------
+
+    function openLightbox(src) {
+      document.getElementById('lightboxImg').src = src;
+      document.getElementById('lightbox').classList.add('open');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeLightbox(e) {
+      if (!e || e.target !== document.getElementById('lightboxImg')) {
+        document.getElementById('lightbox').classList.remove('open');
+        document.body.style.overflow = '';
+      }
+    }
+
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeLightbox(); });
 
     function formatDate(value) {
       if (!value) return '';
@@ -681,8 +714,10 @@
       if (order.Status !== 'Ready for Collection' && order.Status !== 'Delivered') return '';
       var urls = String(order.PhotoURLs || '').split(',').map(function (u) { return u.trim(); }).filter(function (u) { return /^https:\/\//i.test(u); });
       if (!urls.length) return '';
-      var imgs = urls.map(function (u) { return '<img src="' + esc(u) + '" alt="Order photo" loading="lazy">'; }).join('');
-      return '<div class="detail-block"><h4 class="detail-block-title"><i class="ti ti-photo" aria-hidden="true"></i> Photos</h4><div class="photo-grid">' + imgs + '</div></div>';
+      var imgs = urls.map(function (u) {
+        return '<button type="button" class="photo-thumb" onclick="openLightbox(\'' + u + '\')" aria-label="View full size"><img src="' + esc(u) + '" alt="Your outfit photo" loading="lazy"></button>';
+      }).join('');
+      return '<div class="detail-block"><h4 class="detail-block-title"><i class="ti ti-photo" aria-hidden="true"></i> Your Outfit Photos</h4><div class="photo-grid">' + imgs + '</div></div>';
     }
 
     function toggleOrder(orderId) {
