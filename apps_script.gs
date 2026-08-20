@@ -48,7 +48,7 @@ var SHEET_NAMES = {
 };
 
 var SHEET_HEADERS = {
-  Users: ['UserID', 'Name', 'Phone', 'Email', 'PasswordHash', 'Salt', 'CreatedAt'],
+  Users: ['UserID', 'Name', 'Phone', 'Email', 'PasswordHash', 'Salt', 'CreatedAt', 'City'],
   Orders: ['OrderID', 'UserID', 'Garment', 'Purpose', 'Date', 'TimeSlot', 'Notes', 'Status', 'CreatedAt', 'UpdatedAt'],
   Quotations: ['QuotationID', 'OrderID', 'UserID', 'Description', 'Amount', 'Status', 'CreatedAt', 'UpdatedAt'],
   Measurements: ['MeasurementID', 'UserID', 'Garment', 'MeasurementsJSON', 'CreatedAt', 'UpdatedAt'],
@@ -129,37 +129,41 @@ function handleRequest_(params) {
 function createUser(data) {
   var name = (data.name || '').trim();
   var phone = (data.phone || '').trim();
-  var email = (data.email || '').trim();
+  var email = (data.email || '').trim().toLowerCase();
   var password = data.password || '';
+  var city = (data.city || '').trim();
 
-  if (!name || !phone || !password) {
-    return fail_('Name, phone and password are required');
+  if (!name || !phone || !email || !password) {
+    return fail_('Name, mobile, email and password are required');
+  }
+  if (password.length < 8) {
+    return fail_('Password must be at least 8 characters');
   }
   if (findUserByPhone_(phone)) {
-    return fail_('An account with this phone number already exists');
+    return fail_('An account with this mobile number already exists');
+  }
+  if (findUserByEmail_(email)) {
+    return fail_('An account with this email already exists');
   }
 
-  var user = createUserRecord_(name, phone, email, password);
-  return ok_({ userId: user.UserID, name: user.Name, phone: user.Phone, email: user.Email });
+  var user = createUserRecord_(name, phone, email, password, city);
+  return ok_({ userId: user.UserID, name: user.Name, phone: user.Phone, email: user.Email, city: user.City });
 }
 
 function loginUser(data) {
-  var phone = (data.phone || '').trim();
+  var email = (data.email || '').trim().toLowerCase();
   var password = data.password || '';
 
-  if (!phone || !password) {
-    return fail_('Phone and password are required');
+  if (!email || !password) {
+    return fail_('Email and password are required');
   }
 
-  var user = findUserByPhone_(phone);
-  if (!user) {
-    return fail_('No account found with this phone number');
-  }
-  if (hashPassword_(password, user.Salt) !== user.PasswordHash) {
-    return fail_('Incorrect password');
+  var user = findUserByEmail_(email);
+  if (!user || hashPassword_(password, user.Salt) !== user.PasswordHash) {
+    return fail_('Incorrect email or password');
   }
 
-  return ok_({ userId: user.UserID, name: user.Name, phone: user.Phone, email: user.Email });
+  return ok_({ userId: user.UserID, name: user.Name, phone: user.Phone, email: user.Email, city: user.City });
 }
 
 // ---------- Orders ----------
@@ -353,7 +357,7 @@ function legacyOrderEnquiry_(data) {
 
   var user = findUserByPhone_(phone);
   if (!user) {
-    user = createUserRecord_(name || 'Guest', phone, '', Utilities.getUuid());
+    user = createUserRecord_(name || 'Guest', phone, '', Utilities.getUuid(), '');
   }
 
   var order = createOrderRecord_(user.UserID, garment, data.purpose, data.date, data.slot, data.notes);
@@ -362,7 +366,7 @@ function legacyOrderEnquiry_(data) {
 
 // ---------- Shared record creation ----------
 
-function createUserRecord_(name, phone, email, password) {
+function createUserRecord_(name, phone, email, password, city) {
   var salt = makeSalt_();
   var userId = genId_('USR');
   var record = {
@@ -372,7 +376,8 @@ function createUserRecord_(name, phone, email, password) {
     Email: email || '',
     PasswordHash: hashPassword_(password, salt),
     Salt: salt,
-    CreatedAt: new Date()
+    CreatedAt: new Date(),
+    City: city || ''
   };
   withLock_(function () {
     appendRow_(getSheet_(SHEET_NAMES.USERS), SHEET_HEADERS.Users, record);
@@ -467,6 +472,14 @@ function findUserByPhone_(phone) {
   var rows = sheetToObjects_(getSheet_(SHEET_NAMES.USERS));
   for (var i = 0; i < rows.length; i++) {
     if (rows[i].Phone === phone) return rows[i];
+  }
+  return null;
+}
+
+function findUserByEmail_(email) {
+  var rows = sheetToObjects_(getSheet_(SHEET_NAMES.USERS));
+  for (var i = 0; i < rows.length; i++) {
+    if (rows[i].Email && rows[i].Email.toLowerCase() === email) return rows[i];
   }
   return null;
 }
