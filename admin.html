@@ -92,7 +92,7 @@
       padding: 14px 32px; background: white; border-bottom: 1px solid var(--border);
       position: sticky; top: 0; z-index: 100; flex-wrap: wrap; gap: 12px;
     }
-    .nav-logo { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 600; color: var(--rose-dark); letter-spacing: .5px; white-space: nowrap; }
+    .nav-logo { font-family: 'Cormorant Garamond', serif; font-size: 20px; font-weight: 600; color: var(--rose-dark); letter-spacing: .5px; white-space: nowrap; text-decoration: none; }
     .nav-logo span { color: var(--gold); font-style: italic; font-size: 14px; font-weight: 400; letter-spacing: 1px; text-transform: uppercase; margin-left: 6px; }
     .nav-right { display: flex; align-items: center; gap: 16px; }
     .user-chip { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--dark); font-weight: 500; white-space: nowrap; }
@@ -352,7 +352,7 @@
   <div id="adminApp" style="display:none">
 
     <nav class="nav">
-      <div class="nav-logo">Manasa Tailor <span>Admin</span></div>
+      <a href="index.html" target="_blank" rel="noopener" class="nav-logo">Manasa Tailor <span>Admin</span></a>
       <div class="nav-right">
         <div class="notif-wrap">
           <button type="button" class="notif-bell" id="notifBellBtn" aria-haspopup="true" aria-expanded="false" aria-label="Notifications">
@@ -582,7 +582,7 @@
 
     function adminLogout() {
       localStorage.removeItem(ADMIN_STORAGE_KEY);
-      location.reload();
+      window.location.href = 'index.html';
     }
 
     function handleAdminLogin(e) {

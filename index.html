@@ -1494,6 +1494,7 @@
     <a href="#order" onclick="closeNav()">Order</a>
     <a href="#contact" onclick="closeNav()">Contact</a>
   </div>
+  <button class="nav-cta" onclick="handleBookNow()">Book Now</button>
   <button class="hamburger" id="hamburger" onclick="toggleNav()" aria-label="Toggle navigation">
     <span></span><span></span><span></span>
   </button>
@@ -1510,7 +1511,7 @@
     <div class="hero-btns">
       <button class="btn-primary"
         onclick="document.querySelector('.services-bg').scrollIntoView({behavior:'smooth'})">Explore Services</button>
-      <button class="btn-outline" onclick="document.querySelector('.order-form').scrollIntoView({behavior:'smooth'})">Book
+      <button class="btn-outline" onclick="handleBookNow()">Book
         Appointment</button>
     </div>
   </div>
@@ -2056,7 +2057,7 @@
         <li><a href="#about" style="color:inherit;text-decoration:none">About Manasa</a></li>
         <li><a href="#gallery" style="color:inherit;text-decoration:none">Our Work / Gallery</a></li>
         <li><a href="#pricing" style="color:inherit;text-decoration:none">Pricing</a></li>
-        <li><a href="#order" style="color:inherit;text-decoration:none">Book Appointment</a></li>
+        <li><a href="#order" onclick="handleBookNow(); return false;" style="color:inherit;text-decoration:none">Book Appointment</a></li>
         <li><a href="#faq" style="color:inherit;text-decoration:none">FAQ</a></li>
         <li><a href="#contact" style="color:inherit;text-decoration:none">Contact Us</a></li>
       </ul>
@@ -2073,6 +2074,7 @@
   <div class="footer-bottom">
     <p>© 2025 Manasa Tailor. All rights reserved.</p>
     <p>Made with <span style="color:var(--rose)">♥</span> for every woman</p>
+    <p><a href="admin.html" style="color:rgba(255,255,255,.25);text-decoration:none;font-size:10px">Admin Login</a></p>
   </div>
 </footer>
 <script>
@@ -2090,6 +2092,17 @@
     }
   }
   document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeLightbox(); });
+
+  // Book Now / Book Appointment — send logged-in customers straight to
+  // booking.html, everyone else to login.html with a redirect back to it.
+  function handleBookNow() {
+    var user = localStorage.getItem('manasaUser');
+    if (user) {
+      window.location.href = 'booking.html';
+    } else {
+      window.location.href = 'login.html?redirect=booking.html';
+    }
+  }
 
   // Hamburger nav toggle
   function toggleNav() {
