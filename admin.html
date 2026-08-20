@@ -276,6 +276,37 @@
 
     .closed-note { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); background: white; border: 1px solid var(--border); border-radius: 4px; padding: 14px 16px; }
 
+    .measure-form-label { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; display: flex; align-items: center; gap: 6px; }
+    .measure-input-row { display: grid; grid-template-columns: 1fr 100px 90px auto; gap: 8px; align-items: center; margin-bottom: 12px; }
+    .measure-input-row input, .measure-input-row select {
+      padding: 9px 10px; border: 1px solid var(--border); border-radius: 2px;
+      font-family: 'Jost', sans-serif; font-size: 12.5px; color: var(--dark); background: var(--cream); outline: none;
+    }
+    .measure-input-row input:focus, .measure-input-row select:focus { border-color: var(--rose); }
+    .measure-input-row select { background: white; }
+    .measure-add-btn {
+      padding: 9px 14px; background: var(--rose-dark); color: white; border: none; border-radius: 2px;
+      cursor: pointer; font-size: 18px; line-height: 1; font-family: 'Jost', sans-serif;
+    }
+    .measure-add-btn:hover { background: var(--rose); }
+    .measure-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+    .measure-list-row {
+      display: flex; align-items: center; justify-content: space-between; padding: 9px 12px;
+      background: var(--cream); border: 1px solid var(--border); border-radius: 2px; font-size: 13px;
+    }
+    .measure-list-row strong { color: var(--dark); }
+    .measure-list-row .arrow { color: var(--muted); margin: 0 6px; }
+    .measure-list-row .value { color: var(--rose-dark); }
+    .measure-list-remove { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 0 4px; }
+    .measure-list-remove:hover { color: #b23b3b; }
+    .measure-quick-label { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+    .measure-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .measure-chip {
+      padding: 4px 10px; font-size: 11px; border: 1px solid var(--border); border-radius: 999px;
+      background: white; cursor: pointer; font-family: 'Jost', sans-serif; color: var(--muted); transition: all .2s;
+    }
+    .measure-chip:hover { border-color: var(--rose); color: var(--rose-dark); }
+
     /* ── Generic modal ── */
     .modal-overlay {
       position: fixed; inset: 0; background: rgba(44,26,32,.55); z-index: 400;
@@ -547,6 +578,17 @@
     ];
     var SERVICES = ['Saree Blouse', 'Salwar / Churidar Set', 'Gown', 'Kurti / Top', 'Kids Frock', 'Alterations'];
 
+    // Quick-add suggestions for the measurement builder — a starting point,
+    // not a constraint. Shilpa can type any field name the builder doesn't list.
+    var COMMON_FIELDS = {
+      'Saree Blouse': ['Bust', 'Waist', 'Shoulder Width', 'Sleeve Length', 'Back Length', 'Front Length', 'Neck Depth Front', 'Neck Depth Back'],
+      'Salwar / Churidar Set': ['Bust', 'Waist', 'Hip', 'Shoulder Width', 'Sleeve Length', 'Kurta Length', 'Salwar Length', 'Inseam'],
+      'Gown': ['Bust', 'Waist', 'Hip', 'Shoulder Width', 'Sleeve Length', 'Total Length', 'Back Length'],
+      'Kurti / Top': ['Bust', 'Waist', 'Hip', 'Shoulder Width', 'Sleeve Length', 'Kurti Length'],
+      'Kids Frock': ['Chest', 'Waist', 'Hip', 'Shoulder Width', 'Sleeve Length', 'Dress Length', 'Age'],
+      'Alterations': ['Description', 'Length to reduce', 'Width to adjust']
+    };
+
     var CURRENT_ADMIN = null;
     var allOrders = [];
     var allUsers = [];
@@ -560,6 +602,8 @@
     var currentCustomerFilter = null;
     var activeOrderId = null;
     var pendingPhotoDataUrls = [];
+    var pendingMeasurements = []; // [{name, value, unit}] — built by the measurement form
+    var existingMeasurementsForOrder = null; // flat {label: value} from getMeasurementsByUser, or null
 
     // ---------- Session guard (modal, not redirect) ----------
 
@@ -646,14 +690,26 @@
       return digits.length === 10 ? '91' + digits : digits;
     }
 
-    function callApi(action, payload) {
+    // callApi() (GET-based) is defined once, shared, in config.js. Photo
+    // uploads use callApiFireAndForget() below instead — see its comment.
+
+    // Photo payloads (base64, up to 3 images) blow past this endpoint's
+    // ~8-16KB query-string ceiling, so they can't go over callApi()'s GET
+    // transport — and a readable POST is confirmed broken on this
+    // deployment regardless of payload size. This fires a no-cors POST and
+    // never reads the result, the same fallback index.html's legacy order
+    // form already uses for the identical reason. The caller can't know
+    // success/failure from this call alone — loadAdminData() afterwards
+    // re-fetches real state from the sheet so the UI self-corrects either way.
+    function callApiFireAndForget(action, payload) {
       var body = { action: action };
       for (var key in payload) body[key] = payload[key];
       return fetch(CONFIG.WEBAPP_URL, {
         method: 'POST',
+        mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(body)
-      }).then(function (res) { return res.json(); });
+      });
     }
 
     function statusBadge(status) {
@@ -845,6 +901,8 @@
     function openOrderDetail(orderId) {
       activeOrderId = orderId;
       pendingPhotoDataUrls = [];
+      pendingMeasurements = [];
+      existingMeasurementsForOrder = null;
       document.getElementById('orderDetailPanel').classList.add('open');
       document.getElementById('orderDetailBackdrop').classList.add('open');
       renderOrderDetailPanel();
@@ -905,6 +963,7 @@
         var el = document.getElementById('orderMeasurementsContent');
         if (!el) return;
         var match = (res && res.success) ? res.data.measurements.filter(function (m) { return m.garment === order.Garment; })[0] : null;
+        existingMeasurementsForOrder = (match && match.measurements && Object.keys(match.measurements).length) ? match.measurements : null;
         if (!match || !match.measurements || !Object.keys(match.measurements).length) {
           el.innerHTML = '<p class="detail-empty">No measurements saved yet.</p>';
           return;
@@ -977,6 +1036,7 @@
       }
 
       block.innerHTML = statusUpdateHtml(order);
+      renderQuickAddChips(order.Garment);
     }
 
     // ---------- Quotation builder ----------
@@ -1071,6 +1131,18 @@
         '<div class="detail-block">' +
           '<div class="detail-block-title"><i class="ti ti-refresh" aria-hidden="true"></i> Update Status</div>' +
           '<select class="status-select" id="statusSelect" onchange="onStatusSelectChange()">' + optionsHtml + '</select>' +
+          '<div id="measurementFormWrap" style="display:none;margin-top:-4px">' +
+            '<p class="measure-form-label"><i class="ti ti-ruler" aria-hidden="true"></i> Add Measurements</p>' +
+            '<div class="measure-input-row">' +
+              '<input type="text" id="mFieldName" placeholder="Field name (e.g. Bust)">' +
+              '<input type="text" id="mFieldValue" placeholder="Value" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addMeasurementField();}">' +
+              '<select id="mFieldUnit"><option value="inches">inches</option><option value="cm">cm</option><option value="number">number</option><option value="text">text</option></select>' +
+              '<button type="button" class="measure-add-btn" onclick="addMeasurementField()" aria-label="Add field">+</button>' +
+            '</div>' +
+            '<div class="measure-list" id="measurementList"></div>' +
+            '<p class="measure-quick-label">Quick add common fields:</p>' +
+            '<div class="measure-chips" id="quickAddChips"></div>' +
+          '</div>' +
           '<div id="photoUploadWrap" style="display:none">' +
             '<div class="photo-upload-zone">' +
               '<i class="ti ti-camera" aria-hidden="true"></i>' +
@@ -1089,8 +1161,40 @@
     function onStatusSelectChange() {
       var select = document.getElementById('statusSelect');
       var needsPhoto = select.value === 'Ready for Collection';
+      var needsMeasurements = select.value === 'Measurement Taken';
       document.getElementById('photoUploadWrap').style.display = needsPhoto ? 'block' : 'none';
+      document.getElementById('measurementFormWrap').style.display = needsMeasurements ? 'block' : 'none';
+
+      // Pre-fill from whatever's already saved for this order's garment (from
+      // booking.html or an earlier admin edit) so building on it doesn't
+      // silently wipe it out — saveMeasurements replaces the whole record,
+      // it doesn't merge. Only do this once per panel-open, not every time
+      // the dropdown is toggled back to this status.
+      if (needsMeasurements && pendingMeasurements.length === 0 && existingMeasurementsForOrder) {
+        pendingMeasurements = objectToMeasurementsArray_(existingMeasurementsForOrder);
+        renderMeasurementList();
+      }
+
       updateStatusBtnState();
+    }
+
+    // booking.html's customer-entered measurements store a plain value plus
+    // one shared top-level "unit" key for the whole object, rather than this
+    // builder's per-field "36 in" suffix — handle both shapes.
+    function objectToMeasurementsArray_(obj) {
+      var sharedUnit = obj.unit || obj.Unit || '';
+      return Object.keys(obj).filter(function (key) {
+        return key.toLowerCase() !== 'unit';
+      }).map(function (key) {
+        var value = String(obj[key]);
+        var unit = 'text';
+        if (/ in$/i.test(value)) { unit = 'inches'; value = value.replace(/ in$/i, ''); }
+        else if (/ cm$/i.test(value)) { unit = 'cm'; value = value.replace(/ cm$/i, ''); }
+        else if (sharedUnit === 'in') { unit = 'inches'; }
+        else if (sharedUnit === 'cm') { unit = 'cm'; }
+        else if (/^-?\d+(\.\d+)?$/.test(value)) { unit = 'number'; }
+        return { name: key, value: value, unit: unit };
+      });
     }
 
     function updateStatusBtnState() {
@@ -1101,7 +1205,85 @@
         btn.disabled = pendingPhotoDataUrls.length === 0;
         return;
       }
+      if (select.value === 'Measurement Taken') {
+        btn.disabled = pendingMeasurements.length === 0;
+        return;
+      }
       btn.disabled = false;
+    }
+
+    // ---------- Measurement builder ----------
+
+    function renderQuickAddChips(service) {
+      var wrap = document.getElementById('quickAddChips');
+      if (!wrap) return;
+      var fields = COMMON_FIELDS[service] || COMMON_FIELDS['Saree Blouse'];
+      wrap.innerHTML = fields.map(function (field) {
+        return '<button type="button" class="measure-chip" onclick="quickAddField(\'' + field.replace(/'/g, "\\'") + '\')">+ ' + esc(field) + '</button>';
+      }).join('');
+    }
+
+    function quickAddField(field) {
+      document.getElementById('mFieldName').value = field;
+      document.getElementById('mFieldUnit').value = field === 'Age' ? 'number' : 'inches';
+      document.getElementById('mFieldValue').focus();
+    }
+
+    function addMeasurementField() {
+      var nameEl = document.getElementById('mFieldName');
+      var valueEl = document.getElementById('mFieldValue');
+      var name = nameEl.value.trim();
+      var value = valueEl.value.trim();
+      var unit = document.getElementById('mFieldUnit').value;
+
+      if (!name || !value) {
+        nameEl.focus();
+        return;
+      }
+      if (pendingMeasurements.some(function (m) { return m.name.toLowerCase() === name.toLowerCase(); })) {
+        alert('Field "' + name + '" already added. Remove it first to update.');
+        return;
+      }
+
+      pendingMeasurements.push({ name: name, value: value, unit: unit });
+      renderMeasurementList();
+      updateStatusBtnState();
+
+      nameEl.value = '';
+      valueEl.value = '';
+      nameEl.focus();
+    }
+
+    function removeMeasurementField(index) {
+      pendingMeasurements.splice(index, 1);
+      renderMeasurementList();
+      updateStatusBtnState();
+    }
+
+    function renderMeasurementList() {
+      var list = document.getElementById('measurementList');
+      if (!list) return;
+      list.innerHTML = pendingMeasurements.map(function (m, i) {
+        return '' +
+          '<div class="measure-list-row">' +
+            '<span><strong>' + esc(m.name) + '</strong><span class="arrow">→</span><span class="value">' + esc(m.value) + ' ' + esc(m.unit) + '</span></span>' +
+            '<button type="button" class="measure-list-remove" onclick="removeMeasurementField(' + i + ')" aria-label="Remove">&times;</button>' +
+          '</div>';
+      }).join('');
+    }
+
+    // inches/cm are units of measurement, so the value is stored with that
+    // suffix (customers see "Bust: 36 in" on their own dashboard too);
+    // number/text describe the value's type rather than a unit, so those
+    // are stored as-is. Shape matches what saveMeasurements/getMeasurementsByUser
+    // already expect elsewhere in the app — a flat {label: value} object.
+    function measurementsArrayToObject_(list) {
+      var obj = {};
+      list.forEach(function (m) {
+        var suffix = m.unit === 'inches' ? ' in' : (m.unit === 'cm' ? ' cm' : '');
+        obj[m.name] = m.value + suffix;
+      });
+      return obj;
     }
 
     function handlePhotoSelect(e) {
@@ -1174,27 +1356,52 @@
 
       var waTab = window.open('', '_blank');
 
-      callApi('updateOrderStatus', {
-        adminId: CURRENT_ADMIN.adminId, orderId: orderId, status: newStatus,
-        photos: newStatus === 'Ready for Collection' ? pendingPhotoDataUrls : undefined
-      }).then(function (res) {
-        if (res && res.success) {
-          if (waTab) {
-            var msg = statusUpdateWhatsAppMessage(newStatus, user.Name, order.Garment);
-            waTab.location.href = 'https://wa.me/' + toWhatsAppNumber(user.Phone) + '?text=' + encodeURIComponent(msg);
-          }
-          loadAdminData();
-          closeOrderDetail();
-        } else {
-          if (waTab) waTab.close();
-          setStatus(status, (res && res.error) || 'Something went wrong.', 'error');
-          btn.disabled = false;
+      function finish() {
+        if (waTab) {
+          var msg = statusUpdateWhatsAppMessage(newStatus, user.Name, order.Garment);
+          waTab.location.href = 'https://wa.me/' + toWhatsAppNumber(user.Phone) + '?text=' + encodeURIComponent(msg);
         }
-      }).catch(function () {
-        if (waTab) waTab.close();
-        setStatus(status, "Couldn't reach the server.", 'error');
-        btn.disabled = false;
-      });
+        loadAdminData();
+        closeOrderDetail();
+      }
+
+      if (newStatus === 'Ready for Collection') {
+        callApiFireAndForget('updateOrderStatus', {
+          adminId: CURRENT_ADMIN.adminId, orderId: orderId, status: newStatus, photos: pendingPhotoDataUrls
+        });
+        setStatus(status, 'Submitted — refreshing…', 'success');
+        setTimeout(finish, 1500);
+        return;
+      }
+
+      var measurementsStep = (newStatus === 'Measurement Taken' && pendingMeasurements.length)
+        ? callApi('saveMeasurements', {
+            userId: order.UserID, garment: order.Garment,
+            measurements: measurementsArrayToObject_(pendingMeasurements)
+          })
+        : Promise.resolve({ success: true });
+
+      measurementsStep
+        .then(function (measureRes) {
+          if (!measureRes || !measureRes.success) {
+            throw new Error((measureRes && measureRes.error) || 'Could not save measurements.');
+          }
+          return callApi('updateOrderStatus', { adminId: CURRENT_ADMIN.adminId, orderId: orderId, status: newStatus });
+        })
+        .then(function (res) {
+          if (res && res.success) {
+            finish();
+          } else {
+            if (waTab) waTab.close();
+            setStatus(status, (res && res.error) || 'Something went wrong.', 'error');
+            btn.disabled = false;
+          }
+        })
+        .catch(function (err) {
+          if (waTab) waTab.close();
+          setStatus(status, (err && err.message) || "Couldn't reach the server.", 'error');
+          btn.disabled = false;
+        });
     }
 
     // ---------- Walk-in profile modal ----------
