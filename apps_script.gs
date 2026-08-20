@@ -9,21 +9,27 @@
  * 1. Create a new Google Sheet (e.g. "Manasa Tailor Data").
  * 2. Extensions -> Apps Script. Delete any starter code and paste this
  *    whole file in.
- * 3. Select the "setupSheets" function in the toolbar dropdown and click
+ * 3. Set SHEET_ID below to that Sheet's ID (the long ID in its URL, between
+ *    /d/ and /edit). Every read/write goes through SpreadsheetApp.openById
+ *    (SHEET_ID) rather than the "active" spreadsheet, so this script works
+ *    the same whether it's bound to that Sheet or run as a standalone
+ *    project — but it always operates on SHEET_ID's sheet specifically, not
+ *    whichever one it happens to be pasted into.
+ * 4. Select the "setupSheets" function in the toolbar dropdown and click
  *    Run once. This creates the Users / Orders / Quotations / Measurements
  *    / Notifications / Admin tabs with header rows. Safe to re-run — it
  *    skips tabs that already exist.
- * 4. Set up the one admin account: scroll to ADMIN_BOOTSTRAP_EMAIL /
+ * 5. Set up the one admin account: scroll to ADMIN_BOOTSTRAP_EMAIL /
  *    ADMIN_BOOTSTRAP_PASSWORD near the bottom of this file, fill them in,
  *    select "createAdminAccount" in the toolbar dropdown and click Run once.
  *    That's the email/password admin.html logs in with. Blank
  *    ADMIN_BOOTSTRAP_PASSWORD out again afterwards so it isn't sitting in
  *    the script in plain text — re-running with a new password just updates
  *    the same admin rather than creating a second one.
- * 5. Deploy -> New deployment -> type "Web app".
+ * 6. Deploy -> New deployment -> type "Web app".
  *    - Execute as: Me
  *    - Who has access: Anyone
- * 6. Copy the Web App URL and wire it into index.html (see README).
+ * 7. Copy the Web App URL and wire it into index.html (see README).
  *
  * Every time you edit this script, create a NEW deployment (or "Manage
  * deployments" -> edit -> new version) for the change to go live — the URL
@@ -67,6 +73,8 @@
  * Orders.PhotoURLs — Drive access is part of Apps Script's default scopes
  * under "Execute as: Me", no extra API enablement needed.
  */
+
+var SHEET_ID = '1TLMymlNJLjV3QSsMRSd3N7sTe7EyfBbPAn5jYiD-plw';
 
 var SHEET_NAMES = {
   USERS: 'Users',
@@ -132,7 +140,7 @@ var ACTIONS = {
 
 /** One-time setup: creates every tab from SHEET_HEADERS if it doesn't already exist. */
 function setupSheets() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = SpreadsheetApp.openById(SHEET_ID);
   Object.keys(SHEET_HEADERS).forEach(function (name) {
     var sheet = ss.getSheetByName(name);
     if (!sheet) {
@@ -996,7 +1004,7 @@ function createAdminAccount() {
 // ---------- Sheet helpers ----------
 
 function getSheet_(name) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(name);
+  var sheet = SpreadsheetApp.openById(SHEET_ID).getSheetByName(name);
   if (!sheet) {
     throw new Error('Sheet "' + name + '" not found. Run setupSheets() once from the Apps Script editor.');
   }
