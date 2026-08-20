@@ -21,24 +21,40 @@ Live site (GitHub Pages): served from `index.html` in this repo.
 
 No payment integration — orders are confirmed and paid for manually, as before.
 
-## Connecting the order form to Google Sheets
+## Backend: Google Sheets + Apps Script (v2)
 
-The form works out of the box by opening WhatsApp directly. To also save
-every enquiry to a Sheet for tracking:
+`apps_script.gs` is the full backend API — user accounts, orders,
+quotations, measurements and notifications, backed by one Google Sheet with
+six tabs: `Users`, `Orders`, `Quotations`, `Measurements`, `Notifications`,
+`Admin`. Follow the setup steps written at the top of the file:
 
-1. Open `apps-script.gs` in this repo and follow the setup steps written at
-   the top of the file (create a Sheet, paste the script into
-   Extensions → Apps Script, deploy as a Web App).
-2. Copy the Web App URL Google gives you.
-3. In `index.html`, find this line near the bottom:
+1. Create a Sheet, paste `apps_script.gs` into Extensions → Apps Script.
+2. Run `setupSheets()` once from the Apps Script editor to create the six
+   tabs with their header rows.
+3. Add at least one row to the `Admin` tab by hand — `getAllOrders` and
+   `updateOrderStatus` require a valid `adminId` from that tab.
+4. Deploy → New deployment → Web app (execute as Me, access: Anyone), then
+   copy the Web App URL.
+5. In `index.html`, find this line near the bottom:
+
    ```js
    var GOOGLE_SHEET_WEBAPP_URL = "PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE";
    ```
-   Replace the placeholder with your Web App URL.
-4. Commit and push — GitHub Pages updates automatically.
 
-Until step 3 is done, the form still works fine; it just skips the Sheet and
-goes straight to WhatsApp.
+   Replace the placeholder with your Web App URL.
+6. Commit and push — GitHub Pages updates automatically.
+
+The script exposes `createUser`, `loginUser`, `createOrder`,
+`getOrdersByUser`, `getAllOrders`, `updateOrderStatus`, `saveQuotation`,
+`saveMeasurements` and `getNotifications` as `action` values on `doGet`/
+`doPost`; every response is JSON (`{success, data}` or `{success, error}`).
+The current booking form still posts the old plain shape (no `action`),
+which the script treats as a legacy enquiry — it auto-creates a guest user
+and an order so bookings keep landing in the Sheet. Wiring the rest of the
+site (login, account area, admin dashboard) to these new endpoints is a
+follow-up piece of work; until then the form still works fine even with no
+Web App URL configured — it just skips the Sheet and goes straight to
+WhatsApp.
 
 ## Editing content
 

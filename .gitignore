@@ -1,0 +1,31 @@
+# OS cruft
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Local secrets / config — never commit real API keys, webapp URLs, or credentials
+.env
+.env.*
+*.local.js
+*.local.json
+secrets.json
+config.local.*
+
+# Logs
+*.log
+npm-debug.log*
+
+# Archives / backups accidentally dropped in the repo
+*.bak
+*.tmp
+*.zip
