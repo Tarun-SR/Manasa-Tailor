@@ -4,6 +4,8 @@
   <meta charset="UTF-8">
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✂️</text></svg>">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#5c2a4a">
+  <link rel="canonical" href="https://tarun-sr.github.io/Manasa-Tailor/">
   <title>Manasa Tailor — Custom Ladies Stitching in Tumkur, Karnataka</title>
   <meta name="description" content="Manasa Tailor is a home-based ladies' boutique in Tumkur, Karnataka. Custom stitching for saree blouses, salwar sets, gowns, kurtis, kids frocks and bridal wear by Shilpa T N. Call or WhatsApp +91 6360194277.">
   <meta name="keywords" content="ladies tailor Tumkur, blouse stitching Tumkur, churidar stitching Karnataka, custom boutique Tumkur, salwar stitching, bridal blouse Tumkur, Manasa Tailor">
@@ -13,7 +15,7 @@
   <meta property="og:description" content="Exquisite custom stitching for every woman. Saree blouses, gowns, churidars, kids frocks & more. Home boutique in Tumkur, Karnataka.">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="en_IN">
-  <meta property="og:image" content="blouse.png">
+  <meta property="og:image" content="blouse.jpg">
   <meta property="og:image:alt" content="Custom ladies stitching by Manasa Tailor, Tumkur">
   <!-- Local Business Schema for Google -->
   <script type="application/ld+json">
@@ -44,15 +46,16 @@
   }
 
   :root {
-    --rose: #c9728a;
-    --rose-light: #f5e6eb;
-    --rose-dark: #8b3d52;
-    --gold: #b8924a;
-    --gold-light: #f7f0e3;
-    --cream: #fdf8f5;
-    --dark: #2c1a20;
-    --muted: #7a5a64;
-    --border: #e8d5da;
+    --rose: #8a4a6d;
+    --rose-light: #f2e3ea;
+    --rose-dark: #5c2a4a;
+    --gold: #a9822f;
+    --gold-dark: #765b20;
+    --gold-light: #f5ecd6;
+    --cream: #f8f3f0;
+    --dark: #2b1520;
+    --muted: #6b5560;
+    --border: #e3d3da;
   }
 
      /* ========== 3D TILT EFFECTS ========== */
@@ -88,7 +91,7 @@
   }
 
   .nav-logo span {
-    color: var(--gold);
+    color: var(--gold-dark);
     font-style: italic
   }
 
@@ -143,7 +146,7 @@
     font-size: 11px;
     letter-spacing: 3px;
     text-transform: uppercase;
-    color: var(--gold);
+    color: var(--gold-dark);
     margin-bottom: 16px;
     font-weight: 500
   }
@@ -218,14 +221,29 @@
     align-items: center;
     justify-content: center;
     padding: 40px;
-    gap: 16px
+    gap: 16px;
+    position: relative;
+    overflow: hidden
+  }
+
+  .hero-3d {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none
+  }
+
+  .hero-img-box,
+  .hero-badges {
+    position: relative;
+    z-index: 1
   }
 
   .hero-img-box {
     width: 100%;
     max-width: 260px;
     aspect-ratio: 3/4;
-    background: linear-gradient(160deg, #e8c8d4, #c9899e);
+    background: linear-gradient(160deg, #caa0b8, #8a4a6d);
     border-radius: 4px;
     display: flex;
     align-items: center;
@@ -326,7 +344,7 @@
     font-size: 11px;
     letter-spacing: 3px;
     text-transform: uppercase;
-    color: var(--gold);
+    color: var(--gold-dark);
     margin-bottom: 10px;
     font-weight: 500
   }
@@ -506,7 +524,7 @@
 
   .tag {
     background: var(--gold-light);
-    color: var(--gold);
+    color: var(--gold-dark);
     font-size: 11px;
     padding: 3px 10px;
     border-radius: 20px;
@@ -665,6 +683,146 @@
 
   .pricing-bg {
     background: var(--cream)
+  }
+
+  .order-bg {
+    background: var(--gold-light)
+  }
+
+  .faq-bg {
+    background: white
+  }
+
+  .faq-list {
+    max-width: 720px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px
+  }
+
+  .faq-item {
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden
+  }
+
+  .faq-q {
+    width: 100%;
+    background: var(--cream);
+    border: none;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    font-family: 'Jost', sans-serif;
+    font-size: 14px;
+    color: var(--dark);
+    text-align: left
+  }
+
+  .faq-q i {
+    color: var(--rose-dark);
+    transition: transform .2s;
+    flex-shrink: 0;
+    margin-left: 16px
+  }
+
+  .faq-item.open .faq-q i {
+    transform: rotate(45deg)
+  }
+
+  .faq-a {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height .25s ease
+  }
+
+  .faq-a p {
+    padding: 16px 20px;
+    font-size: 13px;
+    color: var(--muted);
+    line-height: 1.8
+  }
+
+  .order-form {
+    max-width: 640px;
+    margin: 0 auto;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 32px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px
+  }
+
+  .order-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px
+  }
+
+  .order-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px
+  }
+
+  .order-field label {
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500
+  }
+
+  .order-field input,
+  .order-field select,
+  .order-field textarea {
+    font-family: 'Jost', sans-serif;
+    font-size: 13px;
+    color: var(--dark);
+    background: var(--cream);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 10px 12px;
+    outline: none
+  }
+
+  .order-field input:focus,
+  .order-field select:focus,
+  .order-field textarea:focus {
+    border-color: var(--rose)
+  }
+
+  .order-field textarea {
+    resize: vertical
+  }
+
+  #ordStatus {
+    font-size: 12px;
+    color: var(--muted)
+  }
+
+  #ordStatus.success {
+    color: var(--rose-dark);
+    font-weight: 500
+  }
+
+  #ordStatus.error {
+    color: #b23b3b;
+    font-weight: 500
+  }
+
+  @media (max-width: 640px) {
+    .order-row {
+      grid-template-columns: 1fr
+    }
+    .order-form {
+      padding: 24px 20px
+    }
   }
 
   .pricing-grid {
@@ -925,7 +1083,7 @@
 
   .footer-top {
     display: grid;
-    grid-template-columns: 2fr 1fr 1fr;
+    grid-template-columns: 2fr 1fr 1fr 1fr;
     gap: 40px;
     margin-bottom: 32px
   }
@@ -1333,9 +1491,9 @@
     <a href="#services" onclick="closeNav()">Services</a>
     <a href="#gallery" onclick="closeNav()">Gallery</a>
     <a href="#pricing" onclick="closeNav()">Pricing</a>
+    <a href="#order" onclick="closeNav()">Order</a>
     <a href="#contact" onclick="closeNav()">Contact</a>
   </div>
-  <button class="nav-cta" onclick="document.querySelector('.contact').scrollIntoView({behavior:'smooth'})">Book Now</button>
   <button class="hamburger" id="hamburger" onclick="toggleNav()" aria-label="Toggle navigation">
     <span></span><span></span><span></span>
   </button>
@@ -1352,11 +1510,12 @@
     <div class="hero-btns">
       <button class="btn-primary"
         onclick="document.querySelector('.services-bg').scrollIntoView({behavior:'smooth'})">Explore Services</button>
-      <button class="btn-outline" onclick="document.querySelector('.contact').scrollIntoView({behavior:'smooth'})">Book
+      <button class="btn-outline" onclick="document.querySelector('.order-form').scrollIntoView({behavior:'smooth'})">Book
         Appointment</button>
     </div>
   </div>
   <div class="hero-right">
+    <div class="hero-3d" id="hero3d" aria-hidden="true"></div>
     <div class="hero-img-box">
       <img src="logo.png" alt="Manasa Tailor Boutique">
     </div>
@@ -1541,42 +1700,42 @@
   </div>
   <div class="gallery-grid">
 
-    <div class="gallery-item" onclick="openLightbox('blouse.png','Blouse Collection')" role="button" aria-label="View Blouse Collection full size" tabindex="0">
+    <div class="gallery-item" onclick="openLightbox('blouse.jpg','Blouse Collection')" role="button" aria-label="View Blouse Collection full size" tabindex="0">
       <img src="blouse.png" alt="Blouse Collection">
       <div class="gallery-overlay">
         <span>Blouse Collection</span>
       </div>
     </div>
 
-    <div class="gallery-item" onclick="openLightbox('bridal_works.png','Bridal Work')" role="button" aria-label="View Bridal Work full size" tabindex="0">
+    <div class="gallery-item" onclick="openLightbox('bridal_works.jpg','Bridal Work')" role="button" aria-label="View Bridal Work full size" tabindex="0">
       <img src="bridal_works.png" alt="Bridal Work">
       <div class="gallery-overlay">
         <span>Bridal Work</span>
       </div>
     </div>
 
-    <div class="gallery-item" onclick="openLightbox('gowns.png','Gowns')" role="button" aria-label="View Gowns full size" tabindex="0">
+    <div class="gallery-item" onclick="openLightbox('gowns.jpg','Gowns')" role="button" aria-label="View Gowns full size" tabindex="0">
       <img src="gowns.png" alt="Gowns">
       <div class="gallery-overlay">
         <span>Gowns</span>
       </div>
     </div>
 
-    <div class="gallery-item" onclick="openLightbox('salwar.png','Salwar Sets')" role="button" aria-label="View Salwar Sets full size" tabindex="0">
+    <div class="gallery-item" onclick="openLightbox('salwar.jpg','Salwar Sets')" role="button" aria-label="View Salwar Sets full size" tabindex="0">
       <img src="salwar.png" alt="Salwar Sets">
       <div class="gallery-overlay">
         <span>Salwar Sets</span>
       </div>
     </div>
 
-    <div class="gallery-item" onclick="openLightbox('party_wear.png','Party Wear')" role="button" aria-label="View Party Wear full size" tabindex="0">
+    <div class="gallery-item" onclick="openLightbox('party_wear.jpg','Party Wear')" role="button" aria-label="View Party Wear full size" tabindex="0">
       <img src="party_wear.png" alt="Party Wear">
       <div class="gallery-overlay">
         <span>Party Wear</span>
       </div>
     </div>
 
-    <div class="gallery-item" onclick="openLightbox('frocks.png','Kids Frocks')" role="button" aria-label="View Kids Frocks full size" tabindex="0">
+    <div class="gallery-item" onclick="openLightbox('frocks.jpg','Kids Frocks')" role="button" aria-label="View Kids Frocks full size" tabindex="0">
       <img src="frocks.png" alt="Kids Frocks">
       <div class="gallery-overlay">
         <span>Kids Frocks</span>
@@ -1586,7 +1745,7 @@
   </div>
   <div style="text-align:center;margin-top:32px">
     <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Want to see more of our work? View the full portfolio on Google Drive.</p>
-    <a href="YOUR_GOOGLE_DRIVE_FOLDER_LINK_HERE" target="_blank" rel="noopener" class="btn-drive">
+    <a href="https://drive.google.com/drive/folders/1mwQGCrLbtLHrh7RDKkRWkXzl-oAUsvgj?usp=sharing" target="_blank" rel="noopener" class="btn-drive">
       <i class="ti ti-brand-google-drive" aria-hidden="true"></i>
       View Full Portfolio
     </a>
@@ -1614,7 +1773,7 @@
         <li>Hemming & minor alterations</li>
         <!-- <li>1 free alteration included</li> -->
       </ul>
-      <button class="price-btn" onclick="document.querySelector('.contact').scrollIntoView({behavior:'smooth'})">Book
+      <button class="price-btn" onclick="document.querySelector('.order-form').scrollIntoView({behavior:'smooth'})">Book
         Now</button>
     </div>
     <div class="price-card featured">
@@ -1629,7 +1788,7 @@
         <li>Kids dresses</li>
         <!-- <li>2 free alterations included</li> -->
       </ul>
-      <button class="price-btn" onclick="document.querySelector('.contact').scrollIntoView({behavior:'smooth'})">Book
+      <button class="price-btn" onclick="document.querySelector('.order-form').scrollIntoView({behavior:'smooth'})">Book
         Now</button>
     </div>
     <div class="price-card">
@@ -1643,7 +1802,7 @@
         <li>Embroidery & patch work</li>
         <!-- <li>Unlimited alterations</li> -->
       </ul>
-      <button class="price-btn" onclick="document.querySelector('.contact').scrollIntoView({behavior:'smooth'})">Book
+      <button class="price-btn" onclick="document.querySelector('.order-form').scrollIntoView({behavior:'smooth'})">Book
         Now</button>
     </div>
   </div>
@@ -1651,17 +1810,94 @@
     given after fabric & design consultation.</p>
 </section>
 
-<!-- CONTACT — No form, only WhatsApp + Call -->
+<!-- ORDER ENQUIRY & APPOINTMENT BOOKING — saves to Google Sheet, then confirms on WhatsApp -->
+<section class="section order-bg" id="order">
+  <div class="center">
+    <h2 class="section-title">Order & <em>Appointment</em></h2>
+    <p class="section-desc">Pick a date and time that works for you. We'll save it and confirm on WhatsApp — please
+      wait for our confirmation before visiting, in case a slot needs to shift.</p>
+  </div>
+  <form id="orderForm" class="order-form" onsubmit="return submitOrder(event)">
+    <div class="order-row">
+      <div class="order-field">
+        <label for="ordName">Your Name*</label>
+        <input type="text" id="ordName" name="name" required>
+      </div>
+      <div class="order-field">
+        <label for="ordPhone">Phone / WhatsApp*</label>
+        <input type="tel" id="ordPhone" name="phone" required placeholder="10-digit number">
+      </div>
+    </div>
+    <div class="order-row">
+      <div class="order-field">
+        <label for="ordGarment">Garment Type*</label>
+        <select id="ordGarment" name="garment" required>
+          <option value="">Select</option>
+          <option>Saree Blouse</option>
+          <option>Salwar / Churidar Set</option>
+          <option>Gown</option>
+          <option>Kurti / Top</option>
+          <option>Kids Frock</option>
+          <option>Bridal Wear</option>
+          <option>Alteration</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="order-field">
+        <label for="ordPurpose">Visit Purpose*</label>
+        <select id="ordPurpose" name="purpose" required>
+          <option value="">Select</option>
+          <option>Measurement / Consultation</option>
+          <option>Trial Fitting</option>
+          <option>Design Discussion</option>
+          <option>Delivery / Pickup</option>
+          <option>Alteration Drop-off</option>
+        </select>
+      </div>
+    </div>
+    <div class="order-row">
+      <div class="order-field">
+        <label for="ordDate">Preferred Date*</label>
+        <input type="date" id="ordDate" name="date" required>
+      </div>
+      <div class="order-field">
+        <label for="ordSlot">Preferred Time*</label>
+        <select id="ordSlot" name="slot" required>
+          <option value="">Select</option>
+          <option>Morning (10:30 AM – 1:00 PM)</option>
+          <option>Afternoon (1:00 PM – 4:00 PM)</option>
+          <option>Evening (4:00 PM – 7:00 PM)</option>
+        </select>
+      </div>
+    </div>
+    <div class="order-field">
+      <label for="ordNotes">Design Notes / Measurements</label>
+      <textarea id="ordNotes" name="notes" rows="3"
+        placeholder="Fabric details, reference photo you'll share on WhatsApp, measurements you already have, etc."></textarea>
+    </div>
+    <button type="submit" class="btn-primary" id="ordSubmitBtn" style="width:100%">Book Appointment</button>
+    <p id="ordStatus"></p>
+    <p style="font-size:11px;color:var(--muted);text-align:center">Open Mon – Sat, 10:30 AM – 7:00 PM · Sunday by
+      appointment only</p>
+  </form>
+</section>
+
+<!-- CONTACT — WhatsApp + Call, order form above handles structured enquiries -->
 <section class="section contact" id="contact">
   <div class="contact-grid">
     <div>
       <div class="section-tag"><i class="ti ti-calendar" aria-hidden="true"></i> &nbsp; Get In Touch</div>
-      <h2 class="section-title">Book an <em>Appointment</em></h2>
-      <p style="font-size:13px;color:var(--muted);line-height:1.8;margin:12px 0 28px;max-width:380px">Reach out directly
-        to discuss your design ideas, take measurements, or ask any questions. We're just a tap away!</p>
+      <h2 class="section-title">Prefer to <em>Talk First?</em></h2>
+      <p style="font-size:13px;color:var(--muted);line-height:1.8;margin:12px 0 28px;max-width:380px">Have a question
+        before booking, or want to skip the form? Reach out directly — we're just a tap away!</p>
       <div class="contact-item">
         <div class="contact-icon"><i class="ti ti-phone" aria-hidden="true"></i></div>
         <div class="contact-text"><strong>Phone / WhatsApp</strong><span>+91 6360194277</span></div>
+      </div>
+      <div class="contact-item">
+        <div class="contact-icon"><i class="ti ti-mail" aria-hidden="true"></i></div>
+        <div class="contact-text"><strong>Email</strong><span><a href="mailto:manasatailor1982@gmail.com"
+              style="color:inherit;text-decoration:none">manasatailor1982@gmail.com</a></span></div>
       </div>
       <div class="contact-item">
         <div class="contact-icon"><i class="ti ti-map-pin" aria-hidden="true"></i></div>
@@ -1686,21 +1922,8 @@
           <p
             style="font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);font-weight:500;margin-bottom:6px">
             Connect Instantly</p>
-          <p style="font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:300;color:var(--dark)">Choose how
-            you'd like<br><em style="color:var(--rose)">to reach us</em></p>
-        </div>
-
-        <button class="btn-whatsapp"
-          onclick="window.open('https://wa.me/916360194277?text=Hi%20Manasa%20Tailor!%20I%20would%20like%20to%20book%20an%20appointment.','_blank')">
-          <i class="ti ti-brand-whatsapp" aria-hidden="true"></i>
-          Chat on WhatsApp
-        </button>
-        <p class="btn-note">Opens WhatsApp with a pre-filled message · Instant reply</p>
-
-        <div style="display:flex;align-items:center;gap:12px">
-          <div style="flex:1;height:1px;background:var(--border)"></div>
-          <span style="font-size:11px;color:var(--muted);letter-spacing:1px">OR</span>
-          <div style="flex:1;height:1px;background:var(--border)"></div>
+          <p style="font-family:'Cormorant Garamond',serif;font-size:26px;font-weight:300;color:var(--dark)">Prefer to
+            talk?<br><em style="color:var(--rose)">Call us directly</em></p>
         </div>
 
         <button class="btn-call" onclick="window.location.href='tel:+916360194277'">
@@ -1708,6 +1931,88 @@
           Call Now
         </button>
         <p class="btn-note">Tap to dial directly · Mon–Sat, 10:30 AM – 7 PM</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!--
+  TESTIMONIALS — add this once you have a few customer quotes (even 3-4 is enough).
+  Uncomment and duplicate the block below for each testimonial. Styling already
+  matches the rest of the site (rose/gold cards) — no extra CSS needed.
+
+  <section class="section" style="background:var(--rose-light)" id="testimonials">
+    <div class="center">
+      <div class="section-tag"><i class="ti ti-quote" aria-hidden="true"></i> &nbsp; Happy Customers</div>
+      <h2 class="section-title">What They <em>Say</em></h2>
+    </div>
+    <div class="pricing-grid">
+      <div class="price-card">
+        <p style="font-family:'Cormorant Garamond',serif;font-size:18px;font-style:italic;color:var(--dark);margin-bottom:16px">
+          "Quote from the customer goes here."
+        </p>
+        <div class="price-name" style="font-size:14px">Customer Name</div>
+        <p class="price-desc">Blouse Stitching</p>
+      </div>
+    </div>
+  </section>
+-->
+
+<!-- FAQ -->
+<section class="section faq-bg" id="faq">
+  <div class="center">
+    <div class="section-tag"><i class="ti ti-help-circle" aria-hidden="true"></i> &nbsp; Common Questions</div>
+    <h2 class="section-title">Frequently <em>Asked</em></h2>
+  </div>
+  <div class="faq-list">
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        <span>Do I need to bring my own fabric?</span>
+        <i class="ti ti-plus" aria-hidden="true"></i>
+      </button>
+      <div class="faq-a">
+        <p>Yes, you're welcome to bring your own fabric, or discuss your design and we can guide you on how much
+          fabric to buy and where. Pricing shown is for stitching only.</p>
+      </div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        <span>How long does stitching usually take?</span>
+        <i class="ti ti-plus" aria-hidden="true"></i>
+      </button>
+      <div class="faq-a">
+        <p>Simple garments like blouses or kurtis typically take a few days. Bridal wear, heavy embroidery, or party
+          wear with intricate work can take longer. Exact timelines are confirmed after your consultation.</p>
+      </div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        <span>Do you take measurements at home, or do I need to visit?</span>
+        <i class="ti ti-plus" aria-hidden="true"></i>
+      </button>
+      <div class="faq-a">
+        <p>Measurements are taken at the home boutique in Tumkur by appointment. Use the booking form above to pick a
+          date and time that works for you.</p>
+      </div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        <span>What if the fit isn't right after stitching?</span>
+        <i class="ti ti-plus" aria-hidden="true"></i>
+      </button>
+      <div class="faq-a">
+        <p>Minor fit adjustments after delivery are supported — just reach out on WhatsApp and we'll sort out a
+          convenient time for the alteration.</p>
+      </div>
+    </div>
+    <div class="faq-item">
+      <button class="faq-q" onclick="toggleFaq(this)">
+        <span>How do I pay, and when?</span>
+        <i class="ti ti-plus" aria-hidden="true"></i>
+      </button>
+      <div class="faq-a">
+        <p>Payment is handled directly with Shilpa — usually part-advance and balance on delivery, confirmed over
+          WhatsApp or in person. No online payment is needed to book a consultation.</p>
       </div>
     </div>
   </div>
@@ -1751,8 +2056,17 @@
         <li><a href="#about" style="color:inherit;text-decoration:none">About Manasa</a></li>
         <li><a href="#gallery" style="color:inherit;text-decoration:none">Our Work / Gallery</a></li>
         <li><a href="#pricing" style="color:inherit;text-decoration:none">Pricing</a></li>
-        <li><a href="#contact" style="color:inherit;text-decoration:none">Book Appointment</a></li>
+        <li><a href="#order" style="color:inherit;text-decoration:none">Book Appointment</a></li>
+        <li><a href="#faq" style="color:inherit;text-decoration:none">FAQ</a></li>
         <li><a href="#contact" style="color:inherit;text-decoration:none">Contact Us</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Get In Touch</h4>
+      <ul>
+        <li><a href="tel:+916360194277" style="color:inherit;text-decoration:none">+91 6360194277</a></li>
+        <li><a href="mailto:manasatailor1982@gmail.com" style="color:inherit;text-decoration:none">manasatailor1982@gmail.com</a></li>
+        <li>Home Boutique · Tumkur, Karnataka</li>
       </ul>
     </div>
   </div>
@@ -1789,6 +2103,21 @@
     document.getElementById('hamburger').classList.remove('open');
   }
 
+  // FAQ accordion
+  function toggleFaq(btn) {
+    var item = btn.parentElement;
+    var answer = item.querySelector('.faq-a');
+    var isOpen = item.classList.contains('open');
+    document.querySelectorAll('.faq-item.open').forEach(function (openItem) {
+      openItem.classList.remove('open');
+      openItem.querySelector('.faq-a').style.maxHeight = null;
+    });
+    if (!isOpen) {
+      item.classList.add('open');
+      answer.style.maxHeight = answer.scrollHeight + 'px';
+    }
+  }
+
   // Scroll entrance animation
   var fadeEls = document.querySelectorAll('.svc-card, .step, .gallery-item, .price-card, .about-cert, .hero-badge, .stat, .contact-item');
   fadeEls.forEach(function(el) { el.classList.add('fade-up'); });
@@ -1805,6 +2134,152 @@
   }, { threshold: 0.12 });
 
   fadeEls.forEach(function(el) { observer.observe(el); });
+
+  // Order/booking date field: don't allow picking a date in the past
+  var ordDateEl = document.getElementById('ordDate');
+  if (ordDateEl) {
+    var today = new Date();
+    var yyyy = today.getFullYear();
+    var mm = String(today.getMonth() + 1).padStart(2, '0');
+    var dd = String(today.getDate()).padStart(2, '0');
+    ordDateEl.min = yyyy + '-' + mm + '-' + dd;
+  }
+</script>
+
+<!-- ORDER FORM: saves enquiry to Google Sheet via Apps Script, falls back to WhatsApp -->
+<script>
+  // Paste your deployed Google Apps Script Web App URL here (see apps-script.gs / README).
+  // Leave as-is and the form will just open WhatsApp with the details pre-filled.
+  var GOOGLE_SHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbw2KxuusQ5rHQO4hXlpLhPFL2DtrWQeX7pnTVud4w9w4TL6bH1w4vYao1sPjxXWQKycMg/exec";
+
+  function buildWhatsAppMessage(data) {
+    var msg = "Hi Manasa Tailor! New appointment booking:\n" +
+      "Name: " + data.name + "\n" +
+      "Phone: " + data.phone + "\n" +
+      "Garment: " + data.garment + "\n" +
+      "Purpose: " + data.purpose + "\n" +
+      "Date: " + data.date + "\n" +
+      "Time: " + data.slot + "\n" +
+      (data.notes ? ("Notes: " + data.notes) : "");
+    return "https://wa.me/916360194277?text=" + encodeURIComponent(msg);
+  }
+
+  function submitOrder(e) {
+    e.preventDefault();
+    var btn = document.getElementById('ordSubmitBtn');
+    var status = document.getElementById('ordStatus');
+    var data = {
+      name: document.getElementById('ordName').value.trim(),
+      phone: document.getElementById('ordPhone').value.trim(),
+      garment: document.getElementById('ordGarment').value,
+      purpose: document.getElementById('ordPurpose').value,
+      date: document.getElementById('ordDate').value,
+      slot: document.getElementById('ordSlot').value,
+      notes: document.getElementById('ordNotes').value.trim()
+    };
+
+    btn.disabled = true;
+    btn.textContent = 'Booking…';
+    status.className = '';
+    status.textContent = '';
+
+    var configured = GOOGLE_SHEET_WEBAPP_URL && GOOGLE_SHEET_WEBAPP_URL.indexOf('PASTE_YOUR') === -1;
+
+    function goToWhatsApp(success) {
+      status.className = success ? 'success' : 'error';
+      status.textContent = success
+        ? 'Saved! Opening WhatsApp to confirm your appointment…'
+        : "Couldn't save automatically — opening WhatsApp so we don't lose your booking.";
+      window.open(buildWhatsAppMessage(data), '_blank');
+      document.getElementById('orderForm').reset();
+      btn.disabled = false;
+      btn.textContent = 'Book Appointment';
+    }
+
+    if (!configured) {
+      // No Sheet connected yet — just go straight to WhatsApp.
+      goToWhatsApp(true);
+      return false;
+    }
+
+    // Apps Script Web Apps don't return readable CORS responses from a plain fetch,
+    // so we fire-and-forget with no-cors and assume success if the request didn't throw.
+    fetch(GOOGLE_SHEET_WEBAPP_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(data)
+    }).then(function () {
+      goToWhatsApp(true);
+    }).catch(function () {
+      goToWhatsApp(false);
+    });
+
+    return false;
+  }
+</script>
+
+<!-- 3D HERO ACCENT: subtle floating thread particles behind the hero image, skipped on mobile / reduced-motion -->
+<script type="module">
+  (async function initHero3D() {
+    var mount = document.getElementById('hero3d');
+    if (!mount) return;
+    var prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (prefersReduced || window.innerWidth < 760) return;
+
+    var THREE;
+    try {
+      THREE = await import('https://unpkg.com/three@0.160.0/build/three.module.js');
+    } catch (err) {
+      return; // no network/CDN access — page still works fine without the 3D accent
+    }
+
+    var width = mount.clientWidth || 400;
+    var height = mount.clientHeight || 400;
+
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+    camera.position.z = 12;
+
+    var renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    mount.appendChild(renderer.domElement);
+
+    var colors = [0x8a4a6d, 0xa9822f, 0xf2e3ea];
+    var group = new THREE.Group();
+    var count = 34;
+    for (var i = 0; i < count; i++) {
+      var size = 0.15 + Math.random() * 0.3;
+      var geo = new THREE.SphereGeometry(size, 8, 8);
+      var mat = new THREE.MeshBasicMaterial({ color: colors[i % colors.length], transparent: true, opacity: 0.5 });
+      var mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 6);
+      mesh.userData.speed = 0.002 + Math.random() * 0.004;
+      mesh.userData.offset = Math.random() * Math.PI * 2;
+      group.add(mesh);
+    }
+    scene.add(group);
+
+    function animate(t) {
+      group.children.forEach(function (mesh) {
+        mesh.position.y += Math.sin(t * 0.001 + mesh.userData.offset) * mesh.userData.speed;
+        mesh.rotation.y += 0.002;
+      });
+      group.rotation.y += 0.0006;
+      renderer.render(scene, camera);
+      requestAnimationFrame(animate);
+    }
+    requestAnimationFrame(animate);
+
+    window.addEventListener('resize', function () {
+      var w = mount.clientWidth, h = mount.clientHeight;
+      if (!w || !h) return;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+    });
+  })();
 </script>
 </body>
 </html>
