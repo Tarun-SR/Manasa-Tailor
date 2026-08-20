@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <script src="config.js"></script>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>✂️</text></svg>">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#8b3d52">
@@ -2161,10 +2162,6 @@
 
 <!-- ORDER FORM: saves enquiry to Google Sheet via Apps Script, falls back to WhatsApp -->
 <script>
-  // Paste your deployed Google Apps Script Web App URL here (see apps-script.gs / README).
-  // Leave as-is and the form will just open WhatsApp with the details pre-filled.
-  var GOOGLE_SHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbw2KxuusQ5rHQO4hXlpLhPFL2DtrWQeX7pnTVud4w9w4TL6bH1w4vYao1sPjxXWQKycMg/exec";
-
   function buildWhatsAppMessage(data) {
     var msg = "Hi Manasa Tailor! New appointment booking:\n" +
       "Name: " + data.name + "\n" +
@@ -2196,7 +2193,7 @@
     status.className = '';
     status.textContent = '';
 
-    var configured = GOOGLE_SHEET_WEBAPP_URL && GOOGLE_SHEET_WEBAPP_URL.indexOf('PASTE_YOUR') === -1;
+    var configured = CONFIG.WEBAPP_URL && CONFIG.WEBAPP_URL.indexOf('PASTE_YOUR') === -1;
 
     function goToWhatsApp(success) {
       status.className = success ? 'success' : 'error';
@@ -2217,7 +2214,7 @@
 
     // Apps Script Web Apps don't return readable CORS responses from a plain fetch,
     // so we fire-and-forget with no-cors and assume success if the request didn't throw.
-    fetch(GOOGLE_SHEET_WEBAPP_URL, {
+    fetch(CONFIG.WEBAPP_URL, {
       method: 'POST',
       mode: 'no-cors',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },

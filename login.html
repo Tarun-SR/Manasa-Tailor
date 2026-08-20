@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <script src="config.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login / Register — Manasa Tailor</title>
   <meta name="description" content="Login or create your Manasa Tailor account to track orders, save measurements, and get updates on your custom stitching.">
@@ -412,8 +413,6 @@
   <script>
     document.getElementById('yr').textContent = new Date().getFullYear();
 
-    // Same Apps Script Web App deployment used by the index.html order form.
-    var GOOGLE_SHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbw2KxuusQ5rHQO4hXlpLhPFL2DtrWQeX7pnTVud4w9w4TL6bH1w4vYao1sPjxXWQKycMg/exec";
     var USER_STORAGE_KEY = 'manasaUser';
 
     // Only ever redirect to one of our own pages — trusting an arbitrary
@@ -452,7 +451,7 @@
     function callApi(action, payload) {
       var body = { action: action };
       for (var key in payload) body[key] = payload[key];
-      return fetch(GOOGLE_SHEET_WEBAPP_URL, {
+      return fetch(CONFIG.WEBAPP_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(body)

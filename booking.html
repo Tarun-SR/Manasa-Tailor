@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <script src="config.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Book an Appointment — Manasa Tailor</title>
   <meta name="description" content="Request a custom stitching quotation from Manasa Tailor — pick a service, share your measurements, and confirm your delivery date.">
@@ -403,7 +404,6 @@
   <script>
     document.getElementById('yr').textContent = new Date().getFullYear();
 
-    var GOOGLE_SHEET_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbw2KxuusQ5rHQO4hXlpLhPFL2DtrWQeX7pnTVud4w9w4TL6bH1w4vYao1sPjxXWQKycMg/exec";
     var USER_STORAGE_KEY = 'manasaUser';
     var ADMIN_WHATSAPP = '916360194277';
 
@@ -459,7 +459,7 @@
     function callApi(action, payload) {
       var body = { action: action };
       for (var key in payload) body[key] = payload[key];
-      return fetch(GOOGLE_SHEET_WEBAPP_URL, {
+      return fetch(CONFIG.WEBAPP_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(body)
