@@ -36,6 +36,23 @@
  * POST bodies with no `action` are treated as legacy order-enquiry
  * submissions from the original single-sheet version of this script (see
  * legacyOrderEnquiry_), so the live booking form keeps working unchanged.
+ *
+ * ORDER LIFECYCLE:
+ * Quotation Requested -> Quotation Sent -> Order Confirmed -> Measurement
+ * Taken -> Work In Progress -> Ready for Collection -> Delivered (or
+ * Cancelled). A customer rejecting a quotation (respondToQuotation) sends
+ * the order back to "Quotation Requested" for a revised quote. Each status
+ * change also writes a Notification row tagged with that same status string
+ * as its Type and the OrderID, so a per-order timeline can be rebuilt by
+ * filtering Notifications on OrderID instead of keeping a separate log.
+ *
+ * NOTE ON RE-RUNNING setupSheets(): the Quotations tab's columns changed
+ * from a single Description/Amount pair to itemized StitchingCost /
+ * FabricCost / AdditionalCost / TotalAmount / Notes. Re-running setupSheets()
+ * only rewrites the header row, so any pre-existing Quotations rows from an
+ * earlier version of this script will end up misaligned under the new
+ * headers — clear or migrate that tab's data by hand before redeploying if
+ * it has real rows in it.
  */
 
 var SHEET_NAMES = {
@@ -49,14 +66,21 @@ var SHEET_NAMES = {
 
 var SHEET_HEADERS = {
   Users: ['UserID', 'Name', 'Phone', 'Email', 'PasswordHash', 'Salt', 'CreatedAt', 'City'],
-  Orders: ['OrderID', 'UserID', 'Garment', 'Purpose', 'Date', 'TimeSlot', 'Notes', 'Status', 'CreatedAt', 'UpdatedAt'],
-  Quotations: ['QuotationID', 'OrderID', 'UserID', 'Description', 'Amount', 'Status', 'CreatedAt', 'UpdatedAt'],
+  Orders: ['OrderID', 'UserID', 'Garment', 'Purpose', 'Date', 'TimeSlot', 'Notes', 'Status', 'CreatedAt', 'UpdatedAt', 'PhotoURLs'],
+  Quotations: ['QuotationID', 'OrderID', 'UserID', 'StitchingCost', 'FabricCost', 'AdditionalCost', 'TotalAmount', 'Notes', 'Status', 'CreatedAt', 'UpdatedAt'],
   Measurements: ['MeasurementID', 'UserID', 'Garment', 'MeasurementsJSON', 'CreatedAt', 'UpdatedAt'],
-  Notifications: ['NotificationID', 'UserID', 'Message', 'Type', 'IsRead', 'CreatedAt'],
+  Notifications: ['NotificationID', 'UserID', 'Message', 'Type', 'IsRead', 'CreatedAt', 'OrderID'],
   Admin: ['AdminID', 'Name', 'Phone', 'Email', 'PasswordHash', 'Salt', 'CreatedAt']
 };
 
-var ORDER_STATUSES = ['Pending', 'Confirmed', 'In Progress', 'Ready', 'Completed', 'Cancelled'];
+// Customer-facing order lifecycle. Order status doubles as each timeline
+// notification's Type, so the dashboard can rebuild a per-order timeline by
+// filtering Notifications on OrderID instead of storing a separate log.
+var ORDER_STATUSES = [
+  'Quotation Requested', 'Quotation Sent', 'Order Confirmed',
+  'Measurement Taken', 'Work In Progress', 'Ready for Collection',
+  'Delivered', 'Cancelled'
+];
 
 var ACTIONS = {
   createUser: createUser,
@@ -66,8 +90,12 @@ var ACTIONS = {
   getAllOrders: getAllOrders,
   updateOrderStatus: updateOrderStatus,
   saveQuotation: saveQuotation,
+  respondToQuotation: respondToQuotation,
+  getQuotationsByUser: getQuotationsByUser,
   saveMeasurements: saveMeasurements,
-  getNotifications: getNotifications
+  getMeasurementsByUser: getMeasurementsByUser,
+  getNotifications: getNotifications,
+  markNotificationRead: markNotificationRead
 };
 
 /** One-time setup: creates every tab from SHEET_HEADERS if it doesn't already exist. */
@@ -218,10 +246,19 @@ function updateOrderStatus(data) {
     return fail_('Invalid status. Must be one of: ' + ORDER_STATUSES.join(', '));
   }
 
-  var found = findById_(SHEET_NAMES.ORDERS, 'OrderID', orderId);
-  if (!found) {
+  var order = setOrderStatus_(orderId, status);
+  if (!order) {
     return fail_('Order not found');
   }
+
+  createNotification_(order.UserID, 'Your order status has been updated to "' + status + '".', status, orderId);
+  return ok_({ orderId: orderId, status: status });
+}
+
+/** Writes a new Status + UpdatedAt onto an order row. Returns the pre-update row, or null if not found. */
+function setOrderStatus_(orderId, status) {
+  var found = findById_(SHEET_NAMES.ORDERS, 'OrderID', orderId);
+  if (!found) return null;
 
   withLock_(function () {
     var sheet = getSheet_(SHEET_NAMES.ORDERS);
@@ -230,8 +267,7 @@ function updateOrderStatus(data) {
     sheet.getRange(found.rowIndex, headers.indexOf('UpdatedAt') + 1).setValue(new Date());
   });
 
-  createNotification_(found.row.UserID, 'Your order status has been updated to "' + status + '".', 'status');
-  return ok_({ orderId: orderId, status: status });
+  return found.row;
 }
 
 // ---------- Quotations ----------
@@ -239,30 +275,96 @@ function updateOrderStatus(data) {
 function saveQuotation(data) {
   var orderId = (data.orderId || '').trim();
   var userId = (data.userId || '').trim();
-  var amount = data.amount;
+  var stitchingCost = Number(data.stitchingCost) || 0;
+  var fabricCost = Number(data.fabricCost) || 0;
+  var additionalCost = Number(data.additionalCost) || 0;
 
-  if (!orderId || !userId || amount === undefined || amount === null || amount === '') {
-    return fail_('orderId, userId and amount are required');
+  if (!orderId || !userId) {
+    return fail_('orderId and userId are required');
   }
   if (!findById_(SHEET_NAMES.ORDERS, 'OrderID', orderId)) {
     return fail_('Order not found');
   }
 
+  var totalAmount = stitchingCost + fabricCost + additionalCost;
   var quotationId = genId_('QUO');
   var now = new Date();
   appendRow_(getSheet_(SHEET_NAMES.QUOTATIONS), SHEET_HEADERS.Quotations, {
     QuotationID: quotationId,
     OrderID: orderId,
     UserID: userId,
-    Description: data.description || '',
-    Amount: amount,
+    StitchingCost: stitchingCost,
+    FabricCost: fabricCost,
+    AdditionalCost: additionalCost,
+    TotalAmount: totalAmount,
+    Notes: data.notes || '',
     Status: 'Pending',
     CreatedAt: now,
     UpdatedAt: now
   });
 
-  createNotification_(userId, 'A quotation of ₹' + amount + ' has been added to your order.', 'quotation');
-  return ok_({ quotationId: quotationId });
+  setOrderStatus_(orderId, 'Quotation Sent');
+  createNotification_(userId, 'A quotation of ₹' + totalAmount + ' has been sent for your order.', 'Quotation Sent', orderId);
+  return ok_({ quotationId: quotationId, totalAmount: totalAmount });
+}
+
+function respondToQuotation(data) {
+  var userId = (data.userId || '').trim();
+  var orderId = (data.orderId || '').trim();
+  var quotationId = (data.quotationId || '').trim();
+  var decision = (data.decision || '').trim().toLowerCase();
+
+  if (!userId || !orderId || !quotationId || (decision !== 'approve' && decision !== 'reject')) {
+    return fail_('userId, orderId, quotationId and a decision of "approve" or "reject" are required');
+  }
+
+  var order = findById_(SHEET_NAMES.ORDERS, 'OrderID', orderId);
+  if (!order || order.row.UserID !== userId) {
+    return fail_('Order not found');
+  }
+  if (order.row.Status !== 'Quotation Sent') {
+    return fail_('This order is not awaiting a quotation response');
+  }
+
+  var quotation = findById_(SHEET_NAMES.QUOTATIONS, 'QuotationID', quotationId);
+  if (!quotation || quotation.row.OrderID !== orderId) {
+    return fail_('Quotation not found');
+  }
+
+  var quotationStatus = decision === 'approve' ? 'Approved' : 'Rejected';
+  var newOrderStatus = decision === 'approve' ? 'Order Confirmed' : 'Quotation Requested';
+
+  withLock_(function () {
+    var sheet = getSheet_(SHEET_NAMES.QUOTATIONS);
+    var headers = SHEET_HEADERS.Quotations;
+    sheet.getRange(quotation.rowIndex, headers.indexOf('Status') + 1).setValue(quotationStatus);
+    sheet.getRange(quotation.rowIndex, headers.indexOf('UpdatedAt') + 1).setValue(new Date());
+  });
+
+  setOrderStatus_(orderId, newOrderStatus);
+  createNotification_(
+    userId,
+    decision === 'approve'
+      ? 'You approved the quotation — your order is now confirmed.'
+      : 'You rejected the quotation. We\'ll follow up with a revised one.',
+    newOrderStatus,
+    orderId
+  );
+
+  return ok_({ orderId: orderId, quotationId: quotationId, status: newOrderStatus });
+}
+
+function getQuotationsByUser(data) {
+  var userId = (data.userId || '').trim();
+  if (!userId) {
+    return fail_('userId is required');
+  }
+
+  var quotations = sheetToObjects_(getSheet_(SHEET_NAMES.QUOTATIONS))
+    .filter(function (row) { return row.UserID === userId; })
+    .sort(byCreatedAtDesc_);
+
+  return ok_({ quotations: quotations });
 }
 
 // ---------- Measurements ----------
@@ -308,6 +410,23 @@ function saveMeasurements(data) {
   return ok_({ saved: true });
 }
 
+function getMeasurementsByUser(data) {
+  var userId = (data.userId || '').trim();
+  if (!userId) {
+    return fail_('userId is required');
+  }
+
+  var measurements = sheetToObjects_(getSheet_(SHEET_NAMES.MEASUREMENTS))
+    .filter(function (row) { return row.UserID === userId; })
+    .map(function (row) {
+      var parsed = {};
+      try { parsed = JSON.parse(row.MeasurementsJSON || '{}'); } catch (err) { parsed = {}; }
+      return { garment: row.Garment, measurements: parsed, updatedAt: row.UpdatedAt };
+    });
+
+  return ok_({ measurements: measurements });
+}
+
 // ---------- Notifications ----------
 
 function getNotifications(data) {
@@ -342,6 +461,28 @@ function getNotifications(data) {
     .sort(byCreatedAtDesc_);
 
   return ok_({ notifications: notifications });
+}
+
+function markNotificationRead(data) {
+  var userId = (data.userId || '').trim();
+  var notificationId = (data.notificationId || '').trim();
+
+  if (!userId || !notificationId) {
+    return fail_('userId and notificationId are required');
+  }
+
+  var found = findById_(SHEET_NAMES.NOTIFICATIONS, 'NotificationID', notificationId);
+  if (!found || found.row.UserID !== userId) {
+    return fail_('Notification not found');
+  }
+
+  withLock_(function () {
+    var sheet = getSheet_(SHEET_NAMES.NOTIFICATIONS);
+    var headers = SHEET_HEADERS.Notifications;
+    sheet.getRange(found.rowIndex, headers.indexOf('IsRead') + 1).setValue(true);
+  });
+
+  return ok_({ notificationId: notificationId });
 }
 
 // ---------- Legacy compatibility (pre-v2 booking form) ----------
@@ -395,18 +536,19 @@ function createOrderRecord_(userId, garment, purpose, date, slot, notes) {
     Date: date || '',
     TimeSlot: slot || '',
     Notes: notes || '',
-    Status: 'Pending',
+    Status: 'Quotation Requested',
     CreatedAt: now,
-    UpdatedAt: now
+    UpdatedAt: now,
+    PhotoURLs: ''
   };
   withLock_(function () {
     appendRow_(getSheet_(SHEET_NAMES.ORDERS), SHEET_HEADERS.Orders, record);
   });
-  createNotification_(userId, 'Your order for ' + garment + ' has been received.', 'order');
+  createNotification_(userId, 'Your order for ' + garment + ' has been received.', 'Quotation Requested', record.OrderID);
   return record;
 }
 
-function createNotification_(userId, message, type) {
+function createNotification_(userId, message, type, orderId) {
   withLock_(function () {
     appendRow_(getSheet_(SHEET_NAMES.NOTIFICATIONS), SHEET_HEADERS.Notifications, {
       NotificationID: genId_('NOT'),
@@ -414,7 +556,8 @@ function createNotification_(userId, message, type) {
       Message: message,
       Type: type || 'general',
       IsRead: false,
-      CreatedAt: new Date()
+      CreatedAt: new Date(),
+      OrderID: orderId || ''
     });
   });
 }
