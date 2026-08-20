@@ -651,10 +651,13 @@
     }
 
     function buildAdminWhatsAppUrl() {
-      var msg = 'New quotation request from ' + (CURRENT_USER.name || 'a customer') + '!\n' +
-        'Service: ' + state.service + '\n' +
-        'Has Measurements: ' + (state.hasMeasurements ? 'Yes' : 'No') + '\n' +
-        'Please check the admin dashboard.';
+      var submittedAt = new Date().toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+      var msg = '🔔 New Quotation Request!\n' +
+        '👤 Customer: ' + (CURRENT_USER.name || 'a customer') + '\n' +
+        '📱 Mobile: ' + (CURRENT_USER.mobile || '') + '\n' +
+        '✂️ Service: ' + state.service + '\n' +
+        '📅 Submitted: ' + submittedAt + '\n' +
+        'Please check admin dashboard.';
       return 'https://wa.me/' + ADMIN_WHATSAPP + '?text=' + encodeURIComponent(msg);
     }
 

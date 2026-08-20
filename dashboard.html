@@ -198,7 +198,8 @@
     .notif-item.unread { background: var(--rose-light); }
     .notif-item-icon { color: var(--rose); font-size: 16px; margin-top: 2px; flex-shrink: 0; }
     .notif-item-body { display: flex; flex-direction: column; gap: 3px; }
-    .notif-item-msg { font-size: 12.5px; color: var(--dark); line-height: 1.5; }
+    .notif-item-title { font-size: 12.5px; color: var(--dark); font-weight: 600; }
+    .notif-item-msg { font-size: 12px; color: var(--muted); line-height: 1.5; }
     .notif-item-time { font-size: 10.5px; color: var(--muted); }
     .notif-empty { padding: 24px 16px; text-align: center; font-size: 12px; color: var(--muted); }
 
@@ -698,15 +699,33 @@
     function handleQuotationDecision(orderId, quotationId, decision) {
       if (decision === 'reject' && !confirm('Reject this quotation? We\'ll follow up with a revised one.')) return;
 
+      // Only opened for 'approve' — the admin needs to know about an
+      // approval, not a rejection (that's covered by their own notification).
+      // Opened synchronously so the click carries the user gesture through
+      // to the async response, same reasoning as booking.html's admin ping.
+      var waTab = decision === 'approve' ? window.open('', '_blank') : null;
+
       callApi('respondToQuotation', { userId: CURRENT_USER.userId, orderId: orderId, quotationId: quotationId, decision: decision })
         .then(function (res) {
           if (res && res.success) {
+            if (waTab) {
+              var order = orders.filter(function (o) { return o.OrderID === orderId; })[0];
+              var quotation = quotations.filter(function (q) { return q.QuotationID === quotationId; })[0];
+              var msg = '✅ Order Confirmed!\n' +
+                '👤 ' + (CURRENT_USER.name || 'A customer') + ' approved the quotation.\n' +
+                '✂️ Service: ' + (order ? order.Garment : '') + '\n' +
+                '💰 Amount: ' + formatMoney(quotation ? quotation.TotalAmount : 0) + '\n' +
+                'Please proceed with scheduling.';
+              waTab.location.href = 'https://wa.me/916360194277?text=' + encodeURIComponent(msg);
+            }
             loadDashboardData();
           } else {
+            if (waTab) waTab.close();
             alert((res && res.error) || 'Something went wrong. Please try again.');
           }
         })
         .catch(function () {
+          if (waTab) waTab.close();
           alert("Couldn't reach the server. Please check your connection and try again.");
         });
     }
@@ -721,6 +740,35 @@
       return 'ti-bell';
     }
 
+    // The Type column already IS the notification's category (it's reused
+    // as the timeline stage name elsewhere) — this just gives it a
+    // friendlier label for display instead of adding a separate Title
+    // column to the sheet.
+    function notifTitle(type) {
+      var map = {
+        'Quotation Requested': 'Order Received',
+        'Quotation Sent': 'Quotation Ready',
+        'Order Confirmed': 'Order Confirmed',
+        'Ready for Collection': 'Ready for Collection'
+      };
+      return map[type] || 'Status Update';
+    }
+
+    function timeAgo(value) {
+      if (!value) return '';
+      var date = new Date(value);
+      if (isNaN(date.getTime())) return '';
+      var diffSec = Math.round((Date.now() - date.getTime()) / 1000);
+      if (diffSec < 60) return 'Just now';
+      var diffMin = Math.round(diffSec / 60);
+      if (diffMin < 60) return diffMin + (diffMin === 1 ? ' minute ago' : ' minutes ago');
+      var diffHr = Math.round(diffMin / 60);
+      if (diffHr < 24) return diffHr + (diffHr === 1 ? ' hour ago' : ' hours ago');
+      var diffDay = Math.round(diffHr / 24);
+      if (diffDay < 7) return diffDay + (diffDay === 1 ? ' day ago' : ' days ago');
+      return formatDate(value);
+    }
+
     function renderNotifDropdown() {
       var list = document.getElementById('notifList');
       if (!notifications.length) {
@@ -732,8 +780,9 @@
           '<button type="button" class="notif-item' + (n.IsRead ? '' : ' unread') + '" onclick="handleNotifClick(\'' + n.NotificationID + '\')">' +
             '<i class="ti ' + notifIcon(n.Type) + ' notif-item-icon" aria-hidden="true"></i>' +
             '<span class="notif-item-body">' +
+              '<span class="notif-item-title">' + esc(notifTitle(n.Type)) + '</span>' +
               '<span class="notif-item-msg">' + esc(n.Message) + '</span>' +
-              '<span class="notif-item-time">' + formatDate(n.CreatedAt) + '</span>' +
+              '<span class="notif-item-time">' + timeAgo(n.CreatedAt) + '</span>' +
             '</span>' +
           '</button>';
       }).join('');
@@ -752,11 +801,24 @@
 
     function handleNotifClick(notificationId) {
       var n = notifications.filter(function (x) { return x.NotificationID === notificationId; })[0];
-      if (n && !n.IsRead) {
+      if (!n) return;
+
+      if (!n.IsRead) {
         n.IsRead = true;
         renderNotifDropdown();
         updateNotifBadge();
         callApi('markNotificationRead', { userId: CURRENT_USER.userId, notificationId: notificationId }).catch(function () {});
+      }
+
+      document.getElementById('notifDropdown').classList.remove('open');
+
+      if (n.OrderID) {
+        var card = document.getElementById('order-' + n.OrderID);
+        if (card) {
+          var detail = document.getElementById('detail-' + n.OrderID);
+          if (detail && detail.style.display === 'none') toggleOrder(n.OrderID);
+          card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
       }
     }
 

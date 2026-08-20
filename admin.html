@@ -130,7 +130,8 @@
     .notif-item.unread { background: var(--rose-light); }
     .notif-item-icon { color: var(--rose); font-size: 16px; margin-top: 2px; flex-shrink: 0; }
     .notif-item-body { display: flex; flex-direction: column; gap: 3px; }
-    .notif-item-msg { font-size: 12.5px; color: var(--dark); line-height: 1.5; }
+    .notif-item-title { font-size: 12.5px; color: var(--dark); font-weight: 600; }
+    .notif-item-msg { font-size: 12px; color: var(--muted); line-height: 1.5; }
     .notif-item-time { font-size: 10.5px; color: var(--muted); }
     .notif-empty { padding: 24px 16px; text-align: center; font-size: 12px; color: var(--muted); }
 
@@ -1037,9 +1038,11 @@
       }).then(function (res) {
         if (res && res.success) {
           if (waTab) {
-            var msg = 'Hi ' + (user.Name || 'there') + '! Your quotation for ' + order.Garment + ' is ready.\n' +
-              'Total: ' + formatMoney(total) + '. Delivery: ' + (deliveryTimeline || 'TBD') + '.\n' +
-              'Please login to approve: ' + LOGIN_URL;
+            var msg = 'Hi ' + (user.Name || 'there') + '! 👋 Your quotation for ' + order.Garment + ' is ready.\n' +
+              '💰 Total: ' + formatMoney(total) + '\n' +
+              '🚚 Delivery: ' + (deliveryTimeline || 'TBD') + '\n' +
+              'Please login to review & approve:\n' + LOGIN_URL + '\n' +
+              '— Manasa Tailor ✂️';
             waTab.location.href = 'https://wa.me/' + toWhatsAppNumber(user.Phone) + '?text=' + encodeURIComponent(msg);
           }
           loadAdminData();
@@ -1147,6 +1150,17 @@
       });
     }
 
+    function statusUpdateWhatsAppMessage(status, name, service) {
+      var greeting = 'Hi ' + (name || 'there') + '!';
+      var templates = {
+        'Measurement Taken': greeting + ' ✅ Your measurements have been recorded.\nWe\'ll start working on your ' + service + ' soon!\n— Manasa Tailor ✂️',
+        'Work In Progress': greeting + ' 🪡 We\'ve started working on your ' + service + '.\nWe\'ll notify you when it\'s ready for collection!\n— Manasa Tailor ✂️',
+        'Ready for Collection': '🎉 ' + greeting + ' Your ' + service + ' is ready for collection!\nPlease visit us at your convenience.\n📍 Manasa Tailor, Tumkur\n📞 +91 63601 94277\n— Manasa Tailor ✂️',
+        'Delivered': '✅ ' + greeting + ' Your order has been marked as delivered.\nThank you for choosing Manasa Tailor! 🙏\nWe\'d love to see you again. ✂️'
+      };
+      return templates[status] || (greeting + ' Your order for ' + service + ' has been updated to: ' + status + '.\nCheck details: ' + LOGIN_URL);
+    }
+
     function submitStatusUpdate(orderId) {
       var order = allOrders.filter(function (o) { return o.OrderID === orderId; })[0];
       var user = usersById[order.UserID] || {};
@@ -1166,7 +1180,7 @@
       }).then(function (res) {
         if (res && res.success) {
           if (waTab) {
-            var msg = 'Hi ' + (user.Name || 'there') + '! Your order for ' + order.Garment + ' has been updated to: ' + newStatus + '.\nCheck details: ' + LOGIN_URL;
+            var msg = statusUpdateWhatsAppMessage(newStatus, user.Name, order.Garment);
             waTab.location.href = 'https://wa.me/' + toWhatsAppNumber(user.Phone) + '?text=' + encodeURIComponent(msg);
           }
           loadAdminData();
@@ -1224,11 +1238,12 @@
         if (res && res.success) {
           showWalkInCredentials(res.data, name);
           if (waTab) {
-            var msg = 'Hi ' + name + '! Your Manasa Tailor account is ready 🎉\n' +
-              'Login at ' + LOGIN_URL + '\n' +
-              'Email: ' + res.data.email + '\n' +
-              'Password: ' + res.data.password + '\n' +
-              'We look forward to serving you!';
+            var msg = 'Hi ' + name + '! 👋 Your Manasa Tailor profile is ready.\n' +
+              '🔐 Login: ' + LOGIN_URL + '\n' +
+              '📧 Email: ' + res.data.email + '\n' +
+              '🔑 Password: ' + res.data.password + '\n' +
+              'Please change your password after first login.\n' +
+              '— Manasa Tailor ✂️';
             waTab.location.href = 'https://wa.me/' + toWhatsAppNumber(mobile) + '?text=' + encodeURIComponent(msg);
           }
         } else {
@@ -1286,6 +1301,32 @@
       return 'ti-bell';
     }
 
+    // Type already IS the notification's category — this just gives it a
+    // friendlier label instead of adding a separate Title column to the sheet.
+    function notifTitle(type) {
+      var map = {
+        'New Quotation Request': 'New Quotation Request',
+        'Customer Approved': 'Customer Approved',
+        'Revision Requested': 'Revision Requested'
+      };
+      return map[type] || 'Notification';
+    }
+
+    function timeAgo(value) {
+      if (!value) return '';
+      var date = new Date(value);
+      if (isNaN(date.getTime())) return '';
+      var diffSec = Math.round((Date.now() - date.getTime()) / 1000);
+      if (diffSec < 60) return 'Just now';
+      var diffMin = Math.round(diffSec / 60);
+      if (diffMin < 60) return diffMin + (diffMin === 1 ? ' minute ago' : ' minutes ago');
+      var diffHr = Math.round(diffMin / 60);
+      if (diffHr < 24) return diffHr + (diffHr === 1 ? ' hour ago' : ' hours ago');
+      var diffDay = Math.round(diffHr / 24);
+      if (diffDay < 7) return diffDay + (diffDay === 1 ? ' day ago' : ' days ago');
+      return formatDate(value);
+    }
+
     function renderNotifDropdown() {
       var list = document.getElementById('notifList');
       if (!notifications.length) {
@@ -1296,7 +1337,11 @@
         return '' +
           '<button type="button" class="notif-item' + (n.IsRead ? '' : ' unread') + '" onclick="handleNotifClick(\'' + n.NotificationID + '\', \'' + (n.OrderID || '') + '\')">' +
             '<i class="ti ' + notifIcon(n.Type) + ' notif-item-icon" aria-hidden="true"></i>' +
-            '<span class="notif-item-body"><span class="notif-item-msg">' + esc(n.Message) + '</span><span class="notif-item-time">' + formatDate(n.CreatedAt) + '</span></span>' +
+            '<span class="notif-item-body">' +
+              '<span class="notif-item-title">' + esc(notifTitle(n.Type)) + '</span>' +
+              '<span class="notif-item-msg">' + esc(n.Message) + '</span>' +
+              '<span class="notif-item-time">' + timeAgo(n.CreatedAt) + '</span>' +
+            '</span>' +
           '</button>';
       }).join('');
     }
