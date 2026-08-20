@@ -513,12 +513,21 @@
     // ---------- Data loading ----------
 
     function loadDashboardData() {
-      Promise.all([
-        callApi('getOrdersByUser', { userId: CURRENT_USER.userId }),
-        callApi('getQuotationsByUser', { userId: CURRENT_USER.userId }),
-        callApi('getMeasurementsByUser', { userId: CURRENT_USER.userId }),
-        callApi('getNotifications', { userId: CURRENT_USER.userId })
-      ]).then(function (results) {
+      // Deferring the Promise.all([...]) construction into a .then() means
+      // a *synchronous* throw from any callApi() call (e.g. CONFIG not
+      // loaded yet) becomes a normal rejection instead of an uncaught
+      // exception — without this, such a throw happens while JS is still
+      // evaluating the array literal, before Promise.all is even called,
+      // so .catch() below would never run and the page would stay on
+      // "Loading…" forever with no visible error.
+      Promise.resolve().then(function () {
+        return Promise.all([
+          callApi('getOrdersByUser', { userId: CURRENT_USER.userId }),
+          callApi('getQuotationsByUser', { userId: CURRENT_USER.userId }),
+          callApi('getMeasurementsByUser', { userId: CURRENT_USER.userId }),
+          callApi('getNotifications', { userId: CURRENT_USER.userId })
+        ]);
+      }).then(function (results) {
         var ordersRes = results[0], quotationsRes = results[1], measurementsRes = results[2], notifsRes = results[3];
 
         orders = (ordersRes && ordersRes.success) ? ordersRes.data.orders : [];
@@ -534,7 +543,8 @@
         renderOrders();
         renderNotifDropdown();
         updateNotifBadge();
-      }).catch(function () {
+      }).catch(function (err) {
+        console.error('loadDashboardData failed:', err);
         document.getElementById('ordersList').innerHTML =
           '<p class="orders-empty error">Couldn\'t load your orders. Please refresh the page or check your connection.</p>';
         document.getElementById('notifList').innerHTML = '<p class="notif-empty">Couldn\'t load notifications.</p>';
