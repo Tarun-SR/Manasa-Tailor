@@ -1428,11 +1428,11 @@
           .then(function (res) {
             if (!res || !res.success) throw new Error((res && res.error) || 'Could not save measurements.');
           })
-          .catch(function () {
+          .catch(function (err) {
             return callApi('getMeasurementsByUser', { userId: order.UserID }).then(function (checkRes) {
               var match = checkRes && checkRes.success && checkRes.data.measurements.filter(function (m) { return m.garment === order.Garment; })[0];
               var justSaved = match && match.updatedAt && (Date.now() - new Date(match.updatedAt).getTime()) < 60000;
-              if (!justSaved) throw new Error('Could not save measurements. Please try again.');
+              if (!justSaved) throw err;
             });
           });
       }
