@@ -275,7 +275,12 @@
     .badge-check { background: var(--rose-light); color: var(--rose-dark); }
     .badge-muted { background: #ececec; color: #777; }
 
-    .order-detail { border-top: 1px solid var(--border); padding: 20px; display: flex; flex-direction: column; gap: 18px; background: var(--cream); }
+    .order-detail {
+      border-top: 1px solid var(--border); padding: 0 20px; display: flex; flex-direction: column; gap: 18px; background: var(--cream);
+      max-height: 0; overflow: hidden; opacity: 0; border-top-color: transparent;
+      transition: max-height .4s var(--ease), padding .4s var(--ease), opacity .3s var(--ease), border-color .4s var(--ease);
+    }
+    .order-detail.open { max-height: 2000px; padding: 20px; opacity: 1; border-top-color: var(--border); }
 
     .detail-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 20px; }
     .detail-field { display: flex; flex-direction: column; gap: 2px; }
@@ -619,7 +624,7 @@
               '<i class="ti ti-chevron-down order-toggle-icon" aria-hidden="true"></i>' +
             '</div>' +
           '</button>' +
-          '<div class="order-detail" id="detail-' + esc(order.OrderID) + '" style="display:none">' +
+          '<div class="order-detail" id="detail-' + esc(order.OrderID) + '">' +
             '<div class="detail-grid">' +
               detailField('Purpose', order.Purpose) +
               detailField('Preferred Date', order.Date) +
@@ -730,8 +735,8 @@
       var detail = document.getElementById('detail-' + orderId);
       var btn = card.querySelector('.order-card-summary');
       var icon = card.querySelector('.order-toggle-icon');
-      var isOpen = detail.style.display !== 'none';
-      detail.style.display = isOpen ? 'none' : 'block';
+      var isOpen = detail.classList.contains('open');
+      detail.classList.toggle('open', !isOpen);
       btn.setAttribute('aria-expanded', String(!isOpen));
       icon.classList.toggle('rotated', !isOpen);
     }

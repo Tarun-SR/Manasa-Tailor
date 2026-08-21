@@ -39,6 +39,19 @@
       flex-direction: column;
     }
 
+    /* #adminApp is a direct flex-child of body (a sibling of #loginOverlay),
+       and showAdminApp() switches it to display:flex — but a flex item is
+       only sized by its OWN content unless it's also a flex container for
+       its own children. Without flex-direction/min-height here, .admin-main's
+       flex:1 further down had nothing to grow inside: #adminApp shrank to
+       its content's natural height (nav + tabs + table + footer), leaving
+       the rest of the 100vh body showing through as blank background below
+       the footer instead of the footer sitting at the bottom of the screen. */
+    #adminApp {
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
     /* ── Buttons ── */
     .btn-primary {
       background: var(--rose-dark); color: white; border: none; padding: 12px 24px;
@@ -118,7 +131,13 @@
     .admin-tab {
       background: none; border: none; padding: 14px 18px; font-family: 'Jost', sans-serif; font-size: 12px;
       letter-spacing: 1px; text-transform: uppercase; color: var(--muted); font-weight: 500; cursor: pointer;
-      border-bottom: 2px solid transparent; transition: color .2s, border-color .2s; display: flex; align-items: center; gap: 6px;
+      border-bottom: 2px solid transparent; transition: color .25s var(--ease), border-color .25s var(--ease); display: flex; align-items: center; gap: 6px;
+    }
+
+    .view-panel { animation: viewFadeIn .35s var(--ease) both; }
+    @keyframes viewFadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
     .admin-tab:hover { color: var(--rose-dark); }
     .admin-tab.active { color: var(--rose-dark); border-bottom-color: var(--rose-dark); }
@@ -434,7 +453,7 @@
     <main class="admin-main">
 
       <!-- ORDERS VIEW -->
-      <div id="ordersView">
+      <div id="ordersView" class="view-panel">
         <div class="page-header">
           <h1 class="page-title">Order <em>Management</em></h1>
           <button type="button" class="btn-primary" onclick="openWalkInModal()">
@@ -484,7 +503,7 @@
       </div>
 
       <!-- CUSTOMERS VIEW -->
-      <div id="customersView" style="display:none">
+      <div id="customersView" class="view-panel" style="display:none">
         <div class="page-header">
           <h1 class="page-title">Customer <em>List</em></h1>
         </div>
@@ -635,7 +654,7 @@
 
     function showAdminApp() {
       document.getElementById('loginOverlay').style.display = 'none';
-      document.getElementById('adminApp').style.display = 'block';
+      document.getElementById('adminApp').style.display = 'flex';
       document.getElementById('adminNameChip').textContent = CURRENT_ADMIN.name || 'Admin';
       loadAdminData();
     }
@@ -789,6 +808,15 @@
       document.getElementById('customersView').style.display = view === 'customers' ? 'block' : 'none';
       document.getElementById('tabOrdersBtn').classList.toggle('active', view === 'orders');
       document.getElementById('tabCustomersBtn').classList.toggle('active', view === 'customers');
+
+      // Restart the fade-in on whichever panel just became visible — a CSS
+      // animation only plays once per class application, so without forcing
+      // a reflow between removing and re-adding it, switching back to a
+      // view you'd already visited would show no animation the second time.
+      var activeEl = document.getElementById(view === 'orders' ? 'ordersView' : 'customersView');
+      activeEl.classList.remove('view-panel');
+      void activeEl.offsetWidth;
+      activeEl.classList.add('view-panel');
     }
 
     // ---------- Summary cards ----------
@@ -990,21 +1018,165 @@
       var orderId = order.OrderID;
       callApi('getMeasurementsByUser', { userId: order.UserID }).then(function (res) {
         if (orderId !== activeOrderId) return; // a different order's panel is open now — don't overwrite it
-        var el = document.getElementById('orderMeasurementsContent');
-        if (!el) return;
         var match = (res && res.success) ? res.data.measurements.filter(function (m) { return m.garment === order.Garment; })[0] : null;
         existingMeasurementsForOrder = (match && match.measurements && Object.keys(match.measurements).length) ? match.measurements : null;
-        if (!match || !match.measurements || !Object.keys(match.measurements).length) {
-          el.innerHTML = '<p class="detail-empty">No measurements saved yet.</p>';
-          return;
-        }
-        el.innerHTML = '<div class="measure-grid">' + Object.keys(match.measurements).map(function (key) {
-          return '<div class="measure-row"><span>' + esc(key) + '</span><span>' + esc(match.measurements[key]) + '</span></div>';
-        }).join('') + '</div>';
+        renderMeasurementsReadOnly(order);
       }).catch(function () {
         var el = document.getElementById('orderMeasurementsContent');
         if (el) el.innerHTML = '<p class="detail-empty">Couldn\'t load measurements.</p>';
       });
+    }
+
+    function renderMeasurementsReadOnly(order) {
+      var el = document.getElementById('orderMeasurementsContent');
+      if (!el) return;
+      var hasData = existingMeasurementsForOrder && Object.keys(existingMeasurementsForOrder).length;
+      var listHtml = hasData
+        ? '<div class="measure-grid">' + Object.keys(existingMeasurementsForOrder).map(function (key) {
+            return '<div class="measure-row"><span>' + esc(key) + '</span><span>' + esc(existingMeasurementsForOrder[key]) + '</span></div>';
+          }).join('') + '</div>'
+        : '<p class="detail-empty">No measurements saved yet.</p>';
+      el.innerHTML = listHtml +
+        '<button type="button" class="btn-outline btn-sm" style="margin-top:10px" onclick="openMeasurementsEditor(\'' + order.OrderID + '\')">' +
+          '<i class="ti ti-' + (hasData ? 'edit' : 'plus') + '" aria-hidden="true"></i> ' + (hasData ? 'Edit Measurements' : 'Add Measurements') +
+        '</button>';
+    }
+
+    // ---------- Standalone measurements editor ----------
+    // A customer's self-reported numbers from booking.html can be off —
+    // this lets the admin correct or add measurements at any point in an
+    // order's life, not just during the one Order Confirmed -> Measurement
+    // Taken status change (that flow's builder further down still exists
+    // for that specific transition). Deliberately separate element IDs and
+    // its own pending-list from that builder so the two can never collide,
+    // however each is opened.
+    var editPendingMeasurements = [];
+
+    function openMeasurementsEditor(orderId) {
+      var order = allOrders.filter(function (o) { return o.OrderID === orderId; })[0];
+      if (!order) return;
+      editPendingMeasurements = existingMeasurementsForOrder ? objectToMeasurementsArray_(existingMeasurementsForOrder) : [];
+
+      var el = document.getElementById('orderMeasurementsContent');
+      el.innerHTML =
+        '<div class="measure-input-row">' +
+          '<input type="text" id="editMFieldName" placeholder="Field name (e.g. Bust)">' +
+          '<input type="text" id="editMFieldValue" placeholder="Value" onkeydown="if(event.key===\'Enter\'){event.preventDefault();addEditMeasurementField();}">' +
+          '<select id="editMFieldUnit"><option value="inches">inches</option><option value="cm">cm</option><option value="number">number</option><option value="text">text</option></select>' +
+          '<button type="button" class="measure-add-btn" onclick="addEditMeasurementField()" aria-label="Add field">+</button>' +
+        '</div>' +
+        '<div class="measure-list" id="editMeasurementList"></div>' +
+        '<p class="measure-quick-label">Quick add common fields:</p>' +
+        '<div class="measure-chips" id="editQuickAddChips"></div>' +
+        '<div style="display:flex;gap:8px;margin-top:14px">' +
+          '<button type="button" class="btn-primary btn-sm" id="saveMeasurementsBtn" onclick="saveMeasurementsEditor(\'' + order.OrderID + '\')" disabled>' +
+            '<i class="ti ti-check" aria-hidden="true"></i> Save Measurements' +
+          '</button>' +
+          '<button type="button" class="btn-outline btn-sm" onclick="cancelMeasurementsEditor(\'' + order.OrderID + '\')">Cancel</button>' +
+        '</div>' +
+        '<p class="form-status" id="editMeasurementsStatus" role="status" aria-live="polite"></p>';
+
+      renderEditQuickAddChips(order.Garment);
+      renderEditMeasurementList();
+    }
+
+    function cancelMeasurementsEditor(orderId) {
+      var order = allOrders.filter(function (o) { return o.OrderID === orderId; })[0];
+      if (order) renderMeasurementsReadOnly(order);
+    }
+
+    function renderEditQuickAddChips(service) {
+      var wrap = document.getElementById('editQuickAddChips');
+      if (!wrap) return;
+      var fields = COMMON_FIELDS[service] || COMMON_FIELDS['Saree Blouse'];
+      wrap.innerHTML = fields.map(function (field) {
+        return '<button type="button" class="measure-chip" onclick="quickAddEditField(\'' + field.replace(/'/g, "\\'") + '\')">+ ' + esc(field) + '</button>';
+      }).join('');
+    }
+
+    function quickAddEditField(field) {
+      document.getElementById('editMFieldName').value = field;
+      document.getElementById('editMFieldUnit').value = field === 'Age' ? 'number' : 'inches';
+      document.getElementById('editMFieldValue').focus();
+    }
+
+    function addEditMeasurementField() {
+      var nameEl = document.getElementById('editMFieldName');
+      var valueEl = document.getElementById('editMFieldValue');
+      var name = nameEl.value.trim();
+      var value = valueEl.value.trim();
+      var unit = document.getElementById('editMFieldUnit').value;
+
+      if (!name || !value) {
+        nameEl.focus();
+        return;
+      }
+      if (editPendingMeasurements.some(function (m) { return m.name.toLowerCase() === name.toLowerCase(); })) {
+        alert('Field "' + name + '" already added. Remove it first to update.');
+        return;
+      }
+
+      editPendingMeasurements.push({ name: name, value: value, unit: unit });
+      renderEditMeasurementList();
+
+      nameEl.value = '';
+      valueEl.value = '';
+      nameEl.focus();
+    }
+
+    function removeEditMeasurementField(index) {
+      editPendingMeasurements.splice(index, 1);
+      renderEditMeasurementList();
+    }
+
+    function renderEditMeasurementList() {
+      var list = document.getElementById('editMeasurementList');
+      if (!list) return;
+      list.innerHTML = editPendingMeasurements.map(function (m, i) {
+        return '' +
+          '<div class="measure-list-row">' +
+            '<span><strong>' + esc(m.name) + '</strong><span class="arrow">→</span><span class="value">' + esc(m.value) + ' ' + esc(m.unit) + '</span></span>' +
+            '<button type="button" class="measure-list-remove" onclick="removeEditMeasurementField(' + i + ')" aria-label="Remove">&times;</button>' +
+          '</div>';
+      }).join('');
+      var saveBtn = document.getElementById('saveMeasurementsBtn');
+      if (saveBtn) saveBtn.disabled = editPendingMeasurements.length === 0;
+    }
+
+    function saveMeasurementsEditor(orderId) {
+      var order = allOrders.filter(function (o) { return o.OrderID === orderId; })[0];
+      if (!order) return;
+      var btn = document.getElementById('saveMeasurementsBtn');
+      var status = document.getElementById('editMeasurementsStatus');
+      btn.disabled = true;
+      setStatus(status, '', '');
+
+      var measurementsObj = measurementsArrayToObject_(editPendingMeasurements);
+
+      callApi('saveMeasurements', { userId: order.UserID, garment: order.Garment, measurements: measurementsObj })
+        .then(function (res) {
+          if (!res || !res.success) throw new Error((res && res.error) || 'Could not save measurements.');
+        })
+        .catch(function (err) {
+          // Same verify-before-treating-as-failed pattern as everywhere else
+          // in this app — this call is a safe blind retry already (see
+          // CALLAPI_SAFE_RETRY_ACTIONS in config.js), but a second, fully
+          // independent failure on top of that still shouldn't be trusted
+          // without checking whether the write actually landed.
+          return callApi('getMeasurementsByUser', { userId: order.UserID }).then(function (checkRes) {
+            var match = checkRes && checkRes.success && checkRes.data.measurements.filter(function (m) { return m.garment === order.Garment; })[0];
+            var justSaved = match && match.updatedAt && (Date.now() - new Date(match.updatedAt).getTime()) < 60000;
+            if (!justSaved) throw err;
+          });
+        })
+        .then(function () {
+          existingMeasurementsForOrder = measurementsObj;
+          renderMeasurementsReadOnly(order);
+        })
+        .catch(function (err) {
+          setStatus(status, (err && err.message) || "Couldn't reach the server.", 'error');
+          btn.disabled = false;
+        });
     }
 
     function loadOrderTimeline(order) {

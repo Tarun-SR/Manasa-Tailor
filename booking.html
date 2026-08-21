@@ -178,10 +178,6 @@
     .measure-toggle-btn i { font-size: 18px; color: var(--rose); }
     .measure-toggle-btn.selected { border-color: var(--rose-dark); background: var(--rose-light); color: var(--rose-dark); }
 
-    .unit-toggle { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; font-size: 12px; color: var(--muted); }
-    .unit-toggle-label { font-weight: 500; text-transform: uppercase; letter-spacing: 1px; font-size: 11px; }
-    .unit-toggle label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
-
     .measure-fields-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px; }
     .measure-field { display: flex; flex-direction: column; gap: 6px; }
     .measure-field.full-width { grid-column: 1 / -1; }
@@ -191,6 +187,48 @@
       border: 1px solid var(--border); border-radius: 3px; padding: 10px 12px; outline: none;
     }
     .measure-field input:focus, .measure-field textarea:focus { border-color: var(--rose); }
+
+    /* Dynamic measurement builder — same add/remove/quick-add pattern the
+       admin uses in admin.html, so a customer entering their own numbers
+       has the identical tool Shilpa has, rather than a fixed set of
+       required fields that don't fit every body or every request. */
+    .measure-input-row { display: grid; grid-template-columns: 1fr 100px 90px auto; gap: 8px; align-items: center; margin-bottom: 12px; }
+    .measure-input-row input, .measure-input-row select {
+      padding: 10px 12px; border: 1px solid var(--border); border-radius: 3px;
+      font-family: 'Jost', sans-serif; font-size: 13px; color: var(--dark); background: var(--cream); outline: none;
+      transition: border-color .25s var(--ease);
+    }
+    .measure-input-row input:focus, .measure-input-row select:focus { border-color: var(--rose); }
+    .measure-input-row select { background: white; }
+    .measure-add-btn {
+      padding: 10px 16px; background: var(--rose-dark); color: white; border: none; border-radius: 3px;
+      cursor: pointer; font-size: 18px; line-height: 1; font-family: 'Jost', sans-serif;
+      transition: background .25s var(--ease);
+    }
+    .measure-add-btn:hover { background: var(--rose); }
+    .measure-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+    .measure-list-row {
+      display: flex; align-items: center; justify-content: space-between; padding: 10px 12px;
+      background: var(--cream); border: 1px solid var(--border); border-radius: 3px; font-size: 13px;
+      animation: measureRowIn .3s var(--ease) both;
+    }
+    @keyframes measureRowIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .measure-list-row strong { color: var(--dark); }
+    .measure-list-row .arrow { color: var(--muted); margin: 0 6px; }
+    .measure-list-row .value { color: var(--rose-dark); }
+    .measure-list-remove { background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; padding: 0 4px; transition: color .2s var(--ease); }
+    .measure-list-remove:hover { color: #b23b3b; }
+    .measure-quick-label { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+    .measure-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+    .measure-chip {
+      padding: 5px 12px; font-size: 11px; border: 1px solid var(--border); border-radius: 999px;
+      background: white; cursor: pointer; font-family: 'Jost', sans-serif; color: var(--muted);
+      transition: border-color .2s var(--ease), color .2s var(--ease), transform .2s var(--ease);
+    }
+    .measure-chip:hover { border-color: var(--rose); color: var(--rose-dark); transform: translateY(-1px); }
 
     .store-visit-box {
       background: var(--gold-light); border: 1px solid var(--border); border-radius: 4px;
@@ -249,6 +287,7 @@
       .booking-wrap { padding: 28px 16px 60px; }
       .booking-card { padding: 26px 20px; }
       .service-grid, .measure-fields-grid { grid-template-columns: 1fr; }
+      .measure-input-row { grid-template-columns: 1fr; }
       .step-actions { flex-direction: column-reverse; gap: 10px; }
       .step-actions .btn-primary, .step-actions .btn-outline { width: 100%; }
       .confirmation-actions { flex-direction: column; }
@@ -325,10 +364,21 @@
         </div>
 
         <div id="measurementFieldsWrap" style="display:none">
-          <div class="unit-toggle">
-            <span class="unit-toggle-label">Units</span>
-            <label><input type="radio" name="unit" value="in" checked> Inches</label>
-            <label><input type="radio" name="unit" value="cm"> cm</label>
+          <div id="measureBuilderWrap">
+            <div class="measure-input-row">
+              <input type="text" id="mFieldName" placeholder="Field name (e.g. Bust)">
+              <input type="text" id="mFieldValue" placeholder="Value" onkeydown="if(event.key==='Enter'){event.preventDefault();addMeasurementField();}">
+              <select id="mFieldUnit">
+                <option value="in">in</option>
+                <option value="cm">cm</option>
+                <option value="number">number</option>
+                <option value="text">text</option>
+              </select>
+              <button type="button" class="measure-add-btn" onclick="addMeasurementField()" aria-label="Add field">+</button>
+            </div>
+            <div class="measure-list" id="measurementList"></div>
+            <p class="measure-quick-label">Quick add common fields:</p>
+            <div class="measure-chips" id="quickAddChips"></div>
           </div>
           <div class="measure-fields-grid" id="measureFieldsGrid"></div>
         </div>
@@ -424,17 +474,21 @@
       { key: 'Alterations', icon: '🪡', desc: 'Modify existing garments' }
     ];
 
-    var MEASUREMENT_FIELDS = {
+    // Quick-add suggestions for the measurement builder — a starting point,
+    // not a requirement. The customer can type any field name the list
+    // doesn't cover, same as the builder admin.html gives Shilpa.
+    var COMMON_FIELDS = {
       'Saree Blouse': ['Bust', 'Waist', 'Shoulder Width', 'Sleeve Length', 'Back Length', 'Front Length', 'Neck Depth (Front)', 'Neck Depth (Back)'],
       'Salwar / Churidar Set': ['Bust', 'Waist', 'Hip', 'Shoulder Width', 'Sleeve Length', 'Kurta Length', 'Salwar Length', 'Inseam'],
       'Gown': ['Bust', 'Waist', 'Hip', 'Shoulder Width', 'Sleeve Length', 'Total Length', 'Back Length'],
       'Kurti / Top': ['Bust', 'Waist', 'Hip', 'Shoulder Width', 'Sleeve Length', 'Kurti Length'],
-      'Kids Frock': ['Chest', 'Waist', 'Hip', 'Shoulder Width', 'Sleeve Length', 'Dress Length', 'Age (for reference)']
+      'Kids Frock': ['Chest', 'Waist', 'Hip', 'Shoulder Width', 'Sleeve Length', 'Dress Length', 'Age']
     };
 
     var CURRENT_USER = null;
     var currentStep = 1;
-    var state = { service: null, hasMeasurements: null, unit: 'in' };
+    var state = { service: null, hasMeasurements: null };
+    var pendingMeasurements = []; // [{name, value, unit}] — built by the measurement builder
 
     // ---------- Session guard ----------
 
@@ -480,6 +534,7 @@
 
     function selectService(index) {
       state.service = SERVICES[index].key;
+      pendingMeasurements = []; // a different service means different fields — don't carry stale ones over
       SERVICES.forEach(function (s, i) {
         document.getElementById('serviceCard' + i).classList.toggle('selected', i === index);
       });
@@ -515,11 +570,12 @@
     }
 
     function renderMeasurementFields() {
+      var builderWrap = document.getElementById('measureBuilderWrap');
       var grid = document.getElementById('measureFieldsGrid');
-      var unitToggle = document.querySelector('.unit-toggle');
 
       if (state.service === 'Alterations') {
-        unitToggle.style.display = 'none';
+        builderWrap.style.display = 'none';
+        grid.style.display = '';
         grid.innerHTML =
           '<div class="measure-field full-width">' +
             '<label for="alterationsDesc">Describe what needs to be altered</label>' +
@@ -528,26 +584,86 @@
         return;
       }
 
-      unitToggle.style.display = 'flex';
-      var fields = MEASUREMENT_FIELDS[state.service] || [];
-      grid.innerHTML = fields.map(function (label) {
-        var isAge = label.indexOf('Age') === 0;
-        var fieldId = 'm_' + label.replace(/[^a-zA-Z0-9]/g, '');
-        var unitSuffix = isAge ? '' : ' <span class="unit-suffix">(' + state.unit + ')</span>';
+      grid.style.display = 'none';
+      builderWrap.style.display = 'block';
+      renderQuickAddChips(state.service);
+      renderMeasurementList();
+    }
+
+    // ---------- Measurement builder (mirrors admin.html's, so a customer's
+    // own entry uses the exact same tool the admin uses) ----------
+
+    function renderQuickAddChips(service) {
+      var wrap = document.getElementById('quickAddChips');
+      if (!wrap) return;
+      var fields = COMMON_FIELDS[service] || COMMON_FIELDS['Saree Blouse'];
+      wrap.innerHTML = fields.map(function (field) {
+        return '<button type="button" class="measure-chip" onclick="quickAddField(\'' + field.replace(/'/g, "\\'") + '\')">+ ' + esc(field) + '</button>';
+      }).join('');
+    }
+
+    function quickAddField(field) {
+      document.getElementById('mFieldName').value = field;
+      document.getElementById('mFieldUnit').value = field === 'Age' ? 'number' : 'in';
+      document.getElementById('mFieldValue').focus();
+    }
+
+    function addMeasurementField() {
+      var nameEl = document.getElementById('mFieldName');
+      var valueEl = document.getElementById('mFieldValue');
+      var name = nameEl.value.trim();
+      var value = valueEl.value.trim();
+      var unit = document.getElementById('mFieldUnit').value;
+
+      if (!name || !value) {
+        nameEl.focus();
+        return;
+      }
+      if (pendingMeasurements.some(function (m) { return m.name.toLowerCase() === name.toLowerCase(); })) {
+        alert('Field "' + name + '" already added. Remove it first to update.');
+        return;
+      }
+
+      pendingMeasurements.push({ name: name, value: value, unit: unit });
+      renderMeasurementList();
+      updateStep2NextState();
+
+      nameEl.value = '';
+      valueEl.value = '';
+      nameEl.focus();
+    }
+
+    function removeMeasurementField(index) {
+      pendingMeasurements.splice(index, 1);
+      renderMeasurementList();
+      updateStep2NextState();
+    }
+
+    function renderMeasurementList() {
+      var list = document.getElementById('measurementList');
+      if (!list) return;
+      list.innerHTML = pendingMeasurements.map(function (m, i) {
         return '' +
-          '<div class="measure-field">' +
-            '<label for="' + fieldId + '">' + esc(label) + unitSuffix + '</label>' +
-            '<input id="' + fieldId + '" type="' + (isAge ? 'number' : 'text') + '" data-label="' + esc(label) + '" oninput="updateStep2NextState()">' +
+          '<div class="measure-list-row">' +
+            '<span><strong>' + esc(m.name) + '</strong><span class="arrow">→</span><span class="value">' + esc(m.value) + ' ' + esc(m.unit) + '</span></span>' +
+            '<button type="button" class="measure-list-remove" onclick="removeMeasurementField(' + i + ')" aria-label="Remove">&times;</button>' +
           '</div>';
       }).join('');
     }
 
-    document.querySelectorAll('input[name="unit"]').forEach(function (radio) {
-      radio.addEventListener('change', function () {
-        state.unit = this.value;
-        document.querySelectorAll('.unit-suffix').forEach(function (el) { el.textContent = '(' + state.unit + ')'; });
+    // in/cm are units of measurement, so the value is stored with that
+    // suffix (matches how the customer's own dashboard displays it back to
+    // them); number/text describe the value's type rather than a unit, so
+    // those are stored as-is. Shape matches saveMeasurements/
+    // getMeasurementsByUser's expected flat {label: value} object.
+    function measurementsArrayToObject_(list) {
+      var obj = {};
+      list.forEach(function (m) {
+        var suffix = m.unit === 'in' ? ' in' : (m.unit === 'cm' ? ' cm' : '');
+        obj[m.name] = m.value + suffix;
       });
-    });
+      return obj;
+    }
 
     function updateStep2NextState() {
       var nextBtn = document.getElementById('step2NextBtn');
@@ -560,10 +676,7 @@
         return;
       }
 
-      var inputs = document.querySelectorAll('#measureFieldsGrid input');
-      var allFilled = inputs.length > 0;
-      inputs.forEach(function (inp) { if (!inp.value.trim()) allFilled = false; });
-      nextBtn.disabled = !allFilled;
+      nextBtn.disabled = pendingMeasurements.length === 0;
     }
 
     function collectMeasurements() {
@@ -575,13 +688,7 @@
         return val ? { description: val } : {};
       }
 
-      var result = {};
-      document.querySelectorAll('#measureFieldsGrid input').forEach(function (inp) {
-        var label = inp.getAttribute('data-label');
-        if (inp.value.trim()) result[label] = inp.value.trim();
-      });
-      if (Object.keys(result).length) result.unit = state.unit;
-      return result;
+      return measurementsArrayToObject_(pendingMeasurements);
     }
 
     // ---------- Step 3: Confirm & Submit ----------
