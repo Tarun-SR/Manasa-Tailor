@@ -687,7 +687,12 @@
     // WhatsApp won't resolve the chat — assume India (+91) for a 10-digit
     // number, same as every hardcoded business number elsewhere in this site.
     function toWhatsAppNumber(phone) {
-      var digits = (phone || '').replace(/\D/g, '');
+      // Sheets stores a phone number as a real number, not text, unless the
+      // cell was explicitly formatted as Plain text — so this can arrive as
+      // a JS number rather than a string (confirmed live: a bare `(phone ||
+      // '')` only falls back to '' when phone is falsy, so a genuine number
+      // sails through and crashes on .replace, which numbers don't have).
+      var digits = String(phone || '').replace(/\D/g, '');
       return digits.length === 10 ? '91' + digits : digits;
     }
 
@@ -882,7 +887,7 @@
       var query = (document.getElementById('customerSearchInput').value || '').trim().toLowerCase();
       var filtered = allUsers.filter(function (u) {
         if (!query) return true;
-        return (u.Name || '').toLowerCase().indexOf(query) !== -1 || (u.Phone || '').indexOf(query) !== -1;
+        return (u.Name || '').toLowerCase().indexOf(query) !== -1 || String(u.Phone || '').indexOf(query) !== -1;
       });
       var tbody = document.getElementById('customersTableBody');
       if (!filtered.length) {
