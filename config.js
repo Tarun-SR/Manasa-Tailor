@@ -34,6 +34,27 @@ const CONFIG = {
  * doesn't work at all on this deployment. That's a real, known tradeoff,
  * not an oversight.
  */
+// Read-only or otherwise side-effect-free actions — safe to silently retry
+// once on failure, since running them twice changes nothing. Actions that
+// create/mutate data (saveQuotation, createOrder, updateOrderStatus, ...)
+// are deliberately left out: confirmed live that a "failed" write can
+// still have gone through server-side (the response just didn't make it
+// back cleanly), so blindly retrying one of those could create a
+// duplicate record instead of just re-reading the same answer. Callers of
+// those actions need to verify against a safe read before deciding
+// whether to actually retry — see admin.html's sendQuotation for the
+// pattern.
+var CALLAPI_SAFE_RETRY_ACTIONS = [
+  'getOrdersByUser', 'getAllOrders', 'getQuotationsByUser', 'getQuotationsByOrder',
+  'getMeasurementsByUser', 'getNotifications', 'getAllUsers', 'getOrderTimeline',
+  'loginUser', 'loginAdmin', 'markNotificationRead', 'updateUserProfile',
+  // Each call just overwrites the same password field — no duplicate
+  // resource risk the way createUser/createOrder/etc. have, so unlike
+  // those, this one really is safe to retry blindly. Only the result the
+  // admin actually sees (the last call that got a response back) matters.
+  'resetUserPassword'
+];
+
 function callApi(action, params) {
   params = params || {};
   var url = new URL(CONFIG.WEBAPP_URL);
@@ -43,8 +64,18 @@ function callApi(action, params) {
     if (value === undefined || value === null) return;
     url.searchParams.set(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
   });
-  return fetch(url.toString()).then(function (res) {
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return res.json();
+
+  function attempt() {
+    return fetch(url.toString()).then(function (res) {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    });
+  }
+
+  if (CALLAPI_SAFE_RETRY_ACTIONS.indexOf(action) === -1) {
+    return attempt();
+  }
+  return attempt().catch(function () {
+    return new Promise(function (resolve) { setTimeout(resolve, 700); }).then(attempt);
   });
 }

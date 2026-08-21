@@ -740,29 +740,53 @@
       // to the async response, same reasoning as booking.html's admin ping.
       var waTab = decision === 'approve' ? window.open('', '_blank') : null;
 
+      function succeed() {
+        if (waTab) {
+          var order = orders.filter(function (o) { return o.OrderID === orderId; })[0];
+          var quotation = quotations.filter(function (q) { return q.QuotationID === quotationId; })[0];
+          var msg = '✅ Order Confirmed!\n' +
+            '👤 ' + (CURRENT_USER.name || 'A customer') + ' approved the quotation.\n' +
+            '✂️ Service: ' + (order ? order.Garment : '') + '\n' +
+            '💰 Amount: ' + formatMoney(quotation ? quotation.TotalAmount : 0) + '\n' +
+            'Please proceed with scheduling.';
+          waTab.location.href = 'https://wa.me/916360194277?text=' + encodeURIComponent(msg);
+        }
+        loadDashboardData();
+      }
+
+      // respondToQuotation can succeed server-side even when the response
+      // never makes it back cleanly (same issue as everywhere else in this
+      // app). It's not safe to just retry — approve/reject only work while
+      // an order is "Quotation Sent", so a stray retry after a real
+      // failure would correctly no-op, but retrying after a real success
+      // could still confuse the flow. On failure, check whether the order
+      // already moved off "Quotation Sent" before assuming this failed.
+      function recoverOrFail() {
+        callApi('getOrdersByUser', { userId: CURRENT_USER.userId }).then(function (checkRes) {
+          var current = checkRes && checkRes.success && checkRes.data.orders.filter(function (o) { return o.OrderID === orderId; })[0];
+          if (current && current.Status !== 'Quotation Sent') {
+            orders = checkRes.data.orders;
+            succeed();
+          } else {
+            if (waTab) waTab.close();
+            alert("Couldn't reach the server. Please try again.");
+          }
+        }).catch(function () {
+          if (waTab) waTab.close();
+          alert("Couldn't reach the server. Please check your connection and try again.");
+        });
+      }
+
       callApi('respondToQuotation', { userId: CURRENT_USER.userId, orderId: orderId, quotationId: quotationId, decision: decision })
         .then(function (res) {
           if (res && res.success) {
-            if (waTab) {
-              var order = orders.filter(function (o) { return o.OrderID === orderId; })[0];
-              var quotation = quotations.filter(function (q) { return q.QuotationID === quotationId; })[0];
-              var msg = '✅ Order Confirmed!\n' +
-                '👤 ' + (CURRENT_USER.name || 'A customer') + ' approved the quotation.\n' +
-                '✂️ Service: ' + (order ? order.Garment : '') + '\n' +
-                '💰 Amount: ' + formatMoney(quotation ? quotation.TotalAmount : 0) + '\n' +
-                'Please proceed with scheduling.';
-              waTab.location.href = 'https://wa.me/916360194277?text=' + encodeURIComponent(msg);
-            }
-            loadDashboardData();
+            succeed();
           } else {
             if (waTab) waTab.close();
             alert((res && res.error) || 'Something went wrong. Please try again.');
           }
         })
-        .catch(function () {
-          if (waTab) waTab.close();
-          alert("Couldn't reach the server. Please check your connection and try again.");
-        });
+        .catch(recoverOrFail);
     }
 
     // ---------- Notification bell ----------

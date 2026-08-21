@@ -391,20 +391,39 @@
       btn.disabled = true;
       setStatus(status, '', '');
 
+      // changePassword can succeed server-side even when the response
+      // never makes it back cleanly (same issue as every write in this
+      // app). It's not safe to just retry — a real duplicate attempt
+      // would use the now-stale currentPassword and fail — so on failure,
+      // check whether the change actually went through by trying to log
+      // in with the new password (a safe, side-effect-free check).
+      function recoverOrFail() {
+        callApi('loginUser', { email: CURRENT_USER.email, password: newPassword }).then(function (res) {
+          if (res && res.success) {
+            setStatus(status, '✅ Password updated successfully!', 'success');
+            document.getElementById('passwordForm').reset();
+          } else {
+            setStatus(status, "Couldn't reach the server. Please try again.", 'error');
+          }
+          btn.disabled = false;
+        }).catch(function () {
+          setStatus(status, "Couldn't reach the server. Please check your connection and try again.", 'error');
+          btn.disabled = false;
+        });
+      }
+
       callApi('changePassword', { userId: CURRENT_USER.userId, currentPassword: currentPassword, newPassword: newPassword })
         .then(function (res) {
           if (res && res.success) {
             setStatus(status, '✅ Password updated successfully!', 'success');
             document.getElementById('passwordForm').reset();
+            btn.disabled = false;
           } else {
             setStatus(status, res && res.error === 'Current password is incorrect' ? '❌ Current password is incorrect' : ((res && res.error) || 'Something went wrong.'), 'error');
+            btn.disabled = false;
           }
-          btn.disabled = false;
         })
-        .catch(function () {
-          setStatus(status, "Couldn't reach the server. Please check your connection and try again.", 'error');
-          btn.disabled = false;
-        });
+        .catch(recoverOrFail);
 
       return false;
     }

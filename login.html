@@ -491,22 +491,47 @@
       btn.textContent = 'Creating Account…';
       setStatus(status, '', '');
 
+      function resetBtn() {
+        btn.disabled = false;
+        btn.textContent = 'Create Account';
+      }
+
+      // createUser can genuinely succeed server-side even when the response
+      // never makes it back cleanly (confirmed live, same underlying issue
+      // across every write in this app). Since createUser already refuses
+      // a duplicate email/phone, retrying it doubles as its own check: if
+      // the retry comes back "already exists", that almost certainly means
+      // our own first attempt went through — recover by logging in with
+      // the same credentials instead of showing a scary duplicate error for
+      // the account this person just created.
+      function recoverViaLogin() {
+        callApi('loginUser', { email: email, password: password }).then(function (res) {
+          if (res && res.success) {
+            setStatus(status, 'Account created! Redirecting…', 'success');
+            saveUserAndRedirect(res.data);
+          } else {
+            setStatus(status, 'An account with this email already exists. Please log in instead, or use a different email.', 'error');
+            resetBtn();
+          }
+        }).catch(function () {
+          setStatus(status, "Couldn't reach the server. Please check your connection and try again.", 'error');
+          resetBtn();
+        });
+      }
+
       callApi('createUser', { name: name, phone: mobile, email: email, password: password, city: city })
         .then(function (res) {
           if (res && res.success) {
             setStatus(status, 'Account created! Redirecting…', 'success');
             saveUserAndRedirect(res.data);
+          } else if (res && /already exists/i.test(res.error || '')) {
+            recoverViaLogin();
           } else {
             setStatus(status, (res && res.error) || 'Could not create your account. Please try again.', 'error');
-            btn.disabled = false;
-            btn.textContent = 'Create Account';
+            resetBtn();
           }
         })
-        .catch(function () {
-          setStatus(status, "Couldn't reach the server. Please check your connection and try again.", 'error');
-          btn.disabled = false;
-          btn.textContent = 'Create Account';
-        });
+        .catch(recoverViaLogin);
 
       return false;
     }
