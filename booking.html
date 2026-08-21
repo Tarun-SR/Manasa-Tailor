@@ -611,7 +611,7 @@
       // Opened synchronously (still inside the click handler) so it carries the
       // user-gesture that lets browsers allow it; its URL is filled in once the
       // order is confirmed, and it's closed again if the request fails.
-      var waTab = window.open('', '_blank');
+      var waTab = openWhatsAppRedirectTab_();
 
       btn.disabled = true;
       setStatus(status, '', '');
