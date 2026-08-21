@@ -1098,32 +1098,59 @@
       // Opened synchronously so the user gesture carries through to the async response.
       var waTab = window.open('', '_blank');
 
+      function succeed() {
+        if (waTab) {
+          var msg = 'Hi ' + (user.Name || 'there') + '! 👋 Your quotation for ' + order.Garment + ' is ready.\n' +
+            '💰 Total: ' + formatMoney(total) + '\n' +
+            '🚚 Delivery: ' + (deliveryTimeline || 'TBD') + '\n' +
+            'Please login to review & approve:\n' + LOGIN_URL + '\n' +
+            '— Manasa Tailor ✂️';
+          waTab.location.href = 'https://wa.me/' + toWhatsAppNumber(user.Phone) + '?text=' + encodeURIComponent(msg);
+        }
+        loadAdminData();
+        closeOrderDetail();
+      }
+
+      // A "failed" saveQuotation call can still have gone through
+      // server-side — confirmed live: the request succeeds and writes the
+      // row, but the redirect-based response Apps Script sends back
+      // occasionally doesn't make it back to fetch() cleanly. Since
+      // saveQuotation isn't safe to blindly retry (a genuine resend would
+      // create a second quotation row), check whether one was actually
+      // just created before treating this as a real failure.
+      function recoverOrFail() {
+        callApi('getQuotationsByOrder', { adminId: CURRENT_ADMIN.adminId, orderId: orderId })
+          .then(function (checkRes) {
+            var latest = checkRes && checkRes.success && checkRes.data.quotations[0];
+            var justCreated = latest && (Date.now() - new Date(latest.CreatedAt).getTime()) < 60000;
+            if (justCreated) {
+              succeed();
+            } else {
+              if (waTab) waTab.close();
+              setStatus(status, "Couldn't reach the server. Please try again.", 'error');
+              btn.disabled = false;
+            }
+          })
+          .catch(function () {
+            if (waTab) waTab.close();
+            setStatus(status, "Couldn't reach the server. Please try again.", 'error');
+            btn.disabled = false;
+          });
+      }
+
       callApi('saveQuotation', {
         adminId: CURRENT_ADMIN.adminId, orderId: orderId, userId: order.UserID,
         stitchingCost: stitchingCost, fabricCost: fabricCost, additionalCost: additionalCost,
         deliveryTimeline: deliveryTimeline, adminNotes: adminNotes
       }).then(function (res) {
         if (res && res.success) {
-          if (waTab) {
-            var msg = 'Hi ' + (user.Name || 'there') + '! 👋 Your quotation for ' + order.Garment + ' is ready.\n' +
-              '💰 Total: ' + formatMoney(total) + '\n' +
-              '🚚 Delivery: ' + (deliveryTimeline || 'TBD') + '\n' +
-              'Please login to review & approve:\n' + LOGIN_URL + '\n' +
-              '— Manasa Tailor ✂️';
-            waTab.location.href = 'https://wa.me/' + toWhatsAppNumber(user.Phone) + '?text=' + encodeURIComponent(msg);
-          }
-          loadAdminData();
-          closeOrderDetail();
+          succeed();
         } else {
           if (waTab) waTab.close();
           setStatus(status, (res && res.error) || 'Something went wrong.', 'error');
           btn.disabled = false;
         }
-      }).catch(function () {
-        if (waTab) waTab.close();
-        setStatus(status, "Couldn't reach the server.", 'error');
-        btn.disabled = false;
-      });
+      }).catch(recoverOrFail);
     }
 
     // ---------- Status update ----------
