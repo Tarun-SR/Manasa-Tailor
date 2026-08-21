@@ -154,7 +154,8 @@ var ACTIONS = {
   getAllUsers: getAllUsers,
   getOrderTimeline: getOrderTimeline,
   updateUserProfile: updateUserProfile,
-  changePassword: changePassword
+  changePassword: changePassword,
+  resetUserPassword: resetUserPassword
 };
 
 /** One-time setup: creates every tab from SHEET_HEADERS if it doesn't already exist. */
@@ -959,6 +960,39 @@ function createWalkInProfile(data) {
     email: email,
     orderId: orderId
   });
+}
+
+/**
+ * Admin-issued password reset. Generates a fresh random password the same
+ * way createWalkInProfile does, so there's always a way to get a customer
+ * a working password again — including the walk-in case where the
+ * original generated password was shown only once and never stored in
+ * plain text, so a lost response there is otherwise unrecoverable.
+ */
+function resetUserPassword(data) {
+  var adminErr = requireAdmin_(data.adminId);
+  if (adminErr) return adminErr;
+
+  var userId = (data.userId || '').trim();
+  if (!userId) {
+    return fail_('userId is required');
+  }
+
+  var found = findById_(SHEET_NAMES.USERS, 'UserID', userId);
+  if (!found) {
+    return fail_('User not found');
+  }
+
+  var newPassword = generateWalkInPassword_();
+  var newSalt = makeSalt_();
+  withLock_(function () {
+    var sheet = getSheet_(SHEET_NAMES.USERS);
+    var headers = SHEET_HEADERS.Users;
+    sheet.getRange(found.rowIndex, headers.indexOf('PasswordHash') + 1).setValue(hashPassword_(newPassword, newSalt));
+    sheet.getRange(found.rowIndex, headers.indexOf('Salt') + 1).setValue(newSalt);
+  });
+
+  return ok_({ userId: userId, name: found.row.Name, email: found.row.Email, phone: found.row.Phone, password: newPassword });
 }
 
 function generateWalkInUsername_(name, phone) {

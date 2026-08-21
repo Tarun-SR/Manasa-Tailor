@@ -47,7 +47,12 @@ const CONFIG = {
 var CALLAPI_SAFE_RETRY_ACTIONS = [
   'getOrdersByUser', 'getAllOrders', 'getQuotationsByUser', 'getQuotationsByOrder',
   'getMeasurementsByUser', 'getNotifications', 'getAllUsers', 'getOrderTimeline',
-  'loginUser', 'loginAdmin', 'markNotificationRead', 'updateUserProfile'
+  'loginUser', 'loginAdmin', 'markNotificationRead', 'updateUserProfile',
+  // Each call just overwrites the same password field — no duplicate
+  // resource risk the way createUser/createOrder/etc. have, so unlike
+  // those, this one really is safe to retry blindly. Only the result the
+  // admin actually sees (the last call that got a response back) matters.
+  'resetUserPassword'
 ];
 
 function callApi(action, params) {

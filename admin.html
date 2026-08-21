@@ -181,6 +181,7 @@
     .data-table tbody tr:hover { background: var(--cream); }
     .table-empty { text-align: center; color: var(--muted); padding: 32px 16px !important; }
     .table-action-btn { white-space: nowrap; }
+    .table-action-cell { display: flex; gap: 8px; }
 
     .badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 4px 12px; border-radius: 20px; font-weight: 500; white-space: nowrap; }
     .badge-yellow { background: #fbf0d9; color: #8a6a1f; }
@@ -546,8 +547,8 @@
       </div>
 
       <div id="walkInCredentialsView" style="display:none">
-        <h2 class="modal-title">Profile <em style="font-style:italic;color:var(--rose)">Created!</em></h2>
-        <p class="modal-subtitle">Share these with the customer.</p>
+        <h2 class="modal-title" id="credentialsModalTitle">Profile <em style="font-style:italic;color:var(--rose)">Created!</em></h2>
+        <p class="modal-subtitle" id="credentialsModalSubtitle">Share these with the customer.</p>
         <div class="credentials-box" id="credentialsBox"></div>
         <button type="button" class="btn-primary" onclick="closeWalkInModal()" style="width:100%">Done</button>
       </div>
@@ -898,7 +899,10 @@
             '<td>' + esc(u.Email) + '</td>' +
             '<td>' + userOrders.length + '</td>' +
             '<td>' + (lastOrder ? formatDate(lastOrder.CreatedAt) : '—') + '</td>' +
-            '<td><button type="button" class="btn-outline table-action-btn btn-sm" onclick="filterByCustomer(\'' + u.UserID + '\')">View Orders</button></td>' +
+            '<td><div class="table-action-cell">' +
+              '<button type="button" class="btn-outline table-action-btn btn-sm" onclick="filterByCustomer(\'' + u.UserID + '\')">View Orders</button>' +
+              '<button type="button" class="btn-outline table-action-btn btn-sm" data-user-id="' + esc(u.UserID) + '" data-user-name="' + esc(u.Name) + '" data-user-phone="' + esc(u.Phone) + '" onclick="resetCustomerPassword(this)">Reset Password</button>' +
+            '</div></td>' +
           '</tr>';
       }).join('');
     }
@@ -1466,6 +1470,7 @@
       var serviceSelect = document.getElementById('wiService');
       serviceSelect.innerHTML = '<option value="">None yet</option>' + SERVICES.map(function (s) { return '<option value="' + esc(s) + '">' + esc(s) + '</option>'; }).join('');
       setStatus(document.getElementById('wiStatus'), '', '');
+      document.getElementById('wiSubmitBtn').disabled = false;
       document.getElementById('walkInFormView').style.display = 'block';
       document.getElementById('walkInCredentialsView').style.display = 'none';
       document.getElementById('walkInModal').classList.add('open');
@@ -1520,8 +1525,45 @@
             succeed(res.data);
           } else if (res && /already exists/i.test(res.error || '')) {
             if (waTab) waTab.close();
-            setStatus(status, 'This profile was likely already created, but the generated password couldn\'t be recovered (it\'s never stored in plain text, even here). Check the Customers tab to confirm it exists — there\'s no self-service password reset built yet, so getting this customer a working password needs the developer\'s help for now.', 'error');
-            btn.disabled = false;
+            // The original attempt's generated password is unrecoverable
+            // (never stored in plain text), but a fresh one can be issued
+            // right now via the same resetUserPassword this Customers tab
+            // uses — no need to send the admin off to find it manually.
+            callApi('getAllUsers', { adminId: CURRENT_ADMIN.adminId }).then(function (usersRes) {
+              var match = usersRes && usersRes.success && usersRes.data.users.filter(function (u) {
+                return u.Phone === mobile || (u.Email || '').toLowerCase() === email.toLowerCase();
+              })[0];
+              if (match && confirm('A profile for this customer already exists, but the generated password couldn\'t be recovered. Issue a fresh password now?')) {
+                callApi('resetUserPassword', { adminId: CURRENT_ADMIN.adminId, userId: match.UserID }).then(function (resetRes) {
+                  if (resetRes && resetRes.success) {
+                    showCredentialsModal(
+                      'Password <em style="font-style:italic;color:var(--rose)">Reset</em>',
+                      'Share the new password with ' + (resetRes.data.name || name) + '.',
+                      credentialRow('Password', resetRes.data.password) + credentialRow('Login Email', resetRes.data.email)
+                    );
+                    var resetTab = window.open('', '_blank');
+                    if (resetTab) {
+                      var resetMsg = 'Hi ' + (resetRes.data.name || name) + '! 👋 Your Manasa Tailor password has been reset.\n' +
+                        '🔐 Login: ' + LOGIN_URL + '\n' +
+                        '📧 Email: ' + resetRes.data.email + '\n' +
+                        '🔑 New Password: ' + resetRes.data.password + '\n' +
+                        '— Manasa Tailor ✂️';
+                      resetTab.location.href = 'https://wa.me/' + toWhatsAppNumber(resetRes.data.phone || mobile) + '?text=' + encodeURIComponent(resetMsg);
+                    }
+                  } else {
+                    alert((resetRes && resetRes.error) || 'Something went wrong resetting the password.');
+                  }
+                }).catch(function () {
+                  alert("Couldn't reach the server. Try Reset Password from the Customers tab instead.");
+                });
+              } else {
+                setStatus(status, 'This profile already exists. Use Reset Password from the Customers tab to issue it a new password.', 'error');
+                btn.disabled = false;
+              }
+            }).catch(function () {
+              setStatus(status, 'This profile likely already exists, but the generated password couldn\'t be recovered. Check the Customers tab and use Reset Password to issue a new one.', 'error');
+              btn.disabled = false;
+            });
           } else {
             if (waTab) waTab.close();
             setStatus(status, (res && res.error) || 'Something went wrong.', 'error');
@@ -1549,13 +1591,60 @@
       return false;
     }
 
-    function showWalkInCredentials(data, name) {
+    function showCredentialsModal(titleHtml, subtitle, rowsHtml) {
       document.getElementById('walkInFormView').style.display = 'none';
+      document.getElementById('credentialsModalTitle').innerHTML = titleHtml;
+      document.getElementById('credentialsModalSubtitle').textContent = subtitle;
+      document.getElementById('credentialsBox').innerHTML = rowsHtml;
       document.getElementById('walkInCredentialsView').style.display = 'block';
-      document.getElementById('credentialsBox').innerHTML =
-        credentialRow('Username', data.username) +
-        credentialRow('Password', data.password) +
-        credentialRow('Login Email', data.email);
+      document.getElementById('walkInModal').classList.add('open');
+    }
+
+    function showWalkInCredentials(data, name) {
+      showCredentialsModal(
+        'Profile <em style="font-style:italic;color:var(--rose)">Created!</em>',
+        'Share these with the customer.',
+        credentialRow('Username', data.username) + credentialRow('Password', data.password) + credentialRow('Login Email', data.email)
+      );
+    }
+
+    // Admin-issued reset — closes the gap where a walk-in profile's
+    // generated password is lost for good if its response never made it
+    // back (see createWalkInProfile's recoverOrFail): this always creates
+    // a fresh, known-working password for any existing account instead.
+    function resetCustomerPassword(btn) {
+      var userId = btn.getAttribute('data-user-id');
+      var name = btn.getAttribute('data-user-name') || 'this customer';
+      var mobile = btn.getAttribute('data-user-phone') || '';
+
+      if (!confirm('Reset the password for ' + name + '? They\'ll need the new password to log in — the old one stops working immediately.')) return;
+
+      var waTab = window.open('', '_blank');
+
+      callApi('resetUserPassword', { adminId: CURRENT_ADMIN.adminId, userId: userId }).then(function (res) {
+        if (res && res.success) {
+          showCredentialsModal(
+            'Password <em style="font-style:italic;color:var(--rose)">Reset</em>',
+            'Share the new password with ' + (res.data.name || name) + '.',
+            credentialRow('Password', res.data.password) + credentialRow('Login Email', res.data.email)
+          );
+          if (waTab) {
+            var msg = 'Hi ' + (res.data.name || name) + '! 👋 Your Manasa Tailor password has been reset.\n' +
+              '🔐 Login: ' + LOGIN_URL + '\n' +
+              '📧 Email: ' + res.data.email + '\n' +
+              '🔑 New Password: ' + res.data.password + '\n' +
+              'Please change your password again after logging in.\n' +
+              '— Manasa Tailor ✂️';
+            waTab.location.href = 'https://wa.me/' + toWhatsAppNumber(res.data.phone || mobile) + '?text=' + encodeURIComponent(msg);
+          }
+        } else {
+          if (waTab) waTab.close();
+          alert((res && res.error) || 'Something went wrong.');
+        }
+      }).catch(function () {
+        if (waTab) waTab.close();
+        alert("Couldn't reach the server. Please try again.");
+      });
     }
 
     function credentialRow(label, value) {
