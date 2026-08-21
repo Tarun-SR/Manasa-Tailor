@@ -1100,7 +1100,7 @@
       setStatus(status, '', '');
 
       // Opened synchronously so the user gesture carries through to the async response.
-      var waTab = window.open('', '_blank');
+      var waTab = openWhatsAppRedirectTab_();
 
       function succeed() {
         if (waTab) {
@@ -1392,7 +1392,7 @@
       btn.disabled = true;
       setStatus(status, '', '');
 
-      var waTab = window.open('', '_blank');
+      var waTab = openWhatsAppRedirectTab_();
 
       function finish() {
         if (waTab) {
@@ -1494,7 +1494,7 @@
       btn.disabled = true;
       setStatus(status, '', '');
 
-      var waTab = window.open('', '_blank');
+      var waTab = openWhatsAppRedirectTab_();
 
       function succeed(data) {
         showWalkInCredentials(data, name);
@@ -1541,7 +1541,7 @@
                       'Share the new password with ' + (resetRes.data.name || name) + '.',
                       credentialRow('Password', resetRes.data.password) + credentialRow('Login Email', resetRes.data.email)
                     );
-                    var resetTab = window.open('', '_blank');
+                    var resetTab = openWhatsAppRedirectTab_();
                     if (resetTab) {
                       var resetMsg = 'Hi ' + (resetRes.data.name || name) + '! 👋 Your Manasa Tailor password has been reset.\n' +
                         '🔐 Login: ' + LOGIN_URL + '\n' +
@@ -1619,7 +1619,7 @@
 
       if (!confirm('Reset the password for ' + name + '? They\'ll need the new password to log in — the old one stops working immediately.')) return;
 
-      var waTab = window.open('', '_blank');
+      var waTab = openWhatsAppRedirectTab_();
 
       callApi('resetUserPassword', { adminId: CURRENT_ADMIN.adminId, userId: userId }).then(function (res) {
         if (res && res.success) {

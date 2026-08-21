@@ -738,7 +738,7 @@
       // approval, not a rejection (that's covered by their own notification).
       // Opened synchronously so the click carries the user gesture through
       // to the async response, same reasoning as booking.html's admin ping.
-      var waTab = decision === 'approve' ? window.open('', '_blank') : null;
+      var waTab = decision === 'approve' ? openWhatsAppRedirectTab_() : null;
 
       function succeed() {
         if (waTab) {
