@@ -1107,12 +1107,23 @@ function parseBool_(value) {
  * here as a string that needs parsing back out, whereas POST could already
  * hand over a real object. Returns null if value isn't already an
  * object/array and doesn't parse as one.
+ *
+ * The string case arrives base64-encoded, not raw JSON — confirmed live
+ * that a raw JSON string (braces/quotes/colons/spaces) placed straight into
+ * a GET query string doesn't reliably survive this Web App's own parameter
+ * parsing (e.g. saveMeasurements with measurements={"Bust":"12 in"} failed
+ * validation as if the param were empty, even when pasting that exact URL
+ * directly into a browser — no client JS/CORS involved at all). Base64
+ * avoids that: its alphabet is just letters, digits, +, /, = — nothing a
+ * query-string layer could reinterpret. See callApi/utf8ToBase64_ in
+ * config.js for the encode side.
  */
 function parseMaybeJson_(value) {
   if (value && typeof value === 'object') return value;
   if (typeof value === 'string' && value.trim()) {
     try {
-      return JSON.parse(value);
+      var decoded = Utilities.newBlob(Utilities.base64Decode(value)).getDataAsString('UTF-8');
+      return JSON.parse(decoded);
     } catch (err) {
       return null;
     }
