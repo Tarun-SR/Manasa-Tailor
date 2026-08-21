@@ -67,6 +67,21 @@ var CALLAPI_SAFE_RETRY_ACTIONS = [
   'updateOrderStatus', 'saveMeasurements'
 ];
 
+// Confirmed live: a plain JSON.stringify'd object (raw braces/quotes/colons/
+// spaces) placed in a GET query string does not reliably survive Apps
+// Script's own parameter parsing on this deployment — e.g. saveMeasurements
+// call with measurements={"Bust":"12 in"} came back "measurements object is
+// required" even though the object was right there in the URL, and pasting
+// that exact URL straight into a browser address bar (no fetch/CORS/JS in
+// the loop at all) reproduced the same failure. Base64 sidesteps this
+// entirely: its alphabet is just letters, digits, +, /, = — nothing a query
+// string layer could reinterpret. parseMaybeJson_ in apps_script.gs decodes
+// it back before JSON.parse. Only applies to the string case — POST already
+// hands over a real parsed object, untouched by any of this.
+function utf8ToBase64_(str) {
+  return btoa(unescape(encodeURIComponent(str)));
+}
+
 function callApi(action, params) {
   params = params || {};
   var url = new URL(CONFIG.WEBAPP_URL);
@@ -74,7 +89,7 @@ function callApi(action, params) {
   Object.keys(params).forEach(function (key) {
     var value = params[key];
     if (value === undefined || value === null) return;
-    url.searchParams.set(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
+    url.searchParams.set(key, typeof value === 'object' ? utf8ToBase64_(JSON.stringify(value)) : String(value));
   });
 
   function attempt() {
