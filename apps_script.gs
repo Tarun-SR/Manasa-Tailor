@@ -61,10 +61,6 @@
  * a fire-and-forget no-cors POST instead, and the frontend can't read a
  * definitive success/failure from it — it just refetches state afterwards.
  *
- * POST bodies with no `action` are treated as legacy order-enquiry
- * submissions from the original single-sheet version of this script (see
- * legacyOrderEnquiry_), so the live booking form keeps working unchanged.
- *
  * ORDER LIFECYCLE:
  * Quotation Requested -> Quotation Sent -> Order Confirmed -> Measurement
  * Taken -> Work In Progress -> Ready for Collection -> Delivered (or
@@ -188,10 +184,6 @@ function doPost(e) {
     body = JSON.parse(e.postData.contents);
   } catch (err) {
     body = (e && e.parameter) ? e.parameter : {};
-  }
-
-  if (!body.action) {
-    return legacyOrderEnquiry_(body);
   }
 
   return handleRequest_(body);
@@ -799,33 +791,6 @@ function markNotificationRead(data) {
   });
 
   return ok_({ notificationId: notificationId });
-}
-
-// ---------- Legacy compatibility (pre-v2 booking form) ----------
-
-function legacyOrderEnquiry_(data) {
-  var name = (data.name || '').trim();
-  var phone = (data.phone || '').trim();
-  var garment = (data.garment || '').trim();
-
-  if (!phone || !garment) {
-    return fail_('phone and garment are required');
-  }
-
-  var user = findUserByPhone_(phone);
-  if (!user) {
-    user = createUserRecord_(name || 'Guest', phone, '', Utilities.getUuid(), '');
-  }
-
-  var order = createOrderRecord_({
-    userId: user.UserID,
-    garment: garment,
-    purpose: data.purpose,
-    date: data.date,
-    slot: data.slot,
-    notes: data.notes
-  });
-  return ok_({ orderId: order.OrderID });
 }
 
 // ---------- Shared record creation ----------
