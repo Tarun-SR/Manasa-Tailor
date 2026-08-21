@@ -1408,29 +1408,47 @@
         return;
       }
 
-      var measurementsStep = (newStatus === 'Measurement Taken' && pendingMeasurements.length)
-        ? callApi('saveMeasurements', {
-            userId: order.UserID, garment: order.Garment,
-            measurements: measurementsArrayToObject_(pendingMeasurements)
+      // Two separate writes below, and either can succeed server-side even
+      // when its response never makes it back cleanly (confirmed live,
+      // same issue as every write in this app) — so each verifies against
+      // a safe read before treating itself as failed. Without that: a
+      // transient hiccup after saveMeasurements actually saved could abort
+      // the chain before updateOrderStatus is even attempted, or a
+      // genuinely successful status update could show as a false error.
+      function saveMeasurementsStep() {
+        if (newStatus !== 'Measurement Taken' || !pendingMeasurements.length) {
+          return Promise.resolve();
+        }
+        var measurementsObj = measurementsArrayToObject_(pendingMeasurements);
+        return callApi('saveMeasurements', { userId: order.UserID, garment: order.Garment, measurements: measurementsObj })
+          .then(function (res) {
+            if (!res || !res.success) throw new Error((res && res.error) || 'Could not save measurements.');
           })
-        : Promise.resolve({ success: true });
+          .catch(function () {
+            return callApi('getMeasurementsByUser', { userId: order.UserID }).then(function (checkRes) {
+              var match = checkRes && checkRes.success && checkRes.data.measurements.filter(function (m) { return m.garment === order.Garment; })[0];
+              var justSaved = match && match.updatedAt && (Date.now() - new Date(match.updatedAt).getTime()) < 60000;
+              if (!justSaved) throw new Error('Could not save measurements. Please try again.');
+            });
+          });
+      }
 
-      measurementsStep
-        .then(function (measureRes) {
-          if (!measureRes || !measureRes.success) {
-            throw new Error((measureRes && measureRes.error) || 'Could not save measurements.');
-          }
-          return callApi('updateOrderStatus', { adminId: CURRENT_ADMIN.adminId, orderId: orderId, status: newStatus });
-        })
-        .then(function (res) {
-          if (res && res.success) {
-            finish();
-          } else {
-            if (waTab) waTab.close();
-            setStatus(status, (res && res.error) || 'Something went wrong.', 'error');
-            btn.disabled = false;
-          }
-        })
+      function updateStatusStep() {
+        return callApi('updateOrderStatus', { adminId: CURRENT_ADMIN.adminId, orderId: orderId, status: newStatus })
+          .then(function (res) {
+            if (!res || !res.success) throw new Error((res && res.error) || 'Something went wrong.');
+          })
+          .catch(function (err) {
+            return callApi('getAllOrders', { adminId: CURRENT_ADMIN.adminId }).then(function (checkRes) {
+              var current = checkRes && checkRes.success && checkRes.data.orders.filter(function (o) { return o.OrderID === orderId; })[0];
+              if (!current || current.Status !== newStatus) throw err;
+            });
+          });
+      }
+
+      saveMeasurementsStep()
+        .then(updateStatusStep)
+        .then(finish)
         .catch(function (err) {
           if (waTab) waTab.close();
           setStatus(status, (err && err.message) || "Couldn't reach the server.", 'error');
@@ -1473,30 +1491,60 @@
 
       var waTab = window.open('', '_blank');
 
+      function succeed(data) {
+        showWalkInCredentials(data, name);
+        if (waTab) {
+          var msg = 'Hi ' + name + '! 👋 Your Manasa Tailor profile is ready.\n' +
+            '🔐 Login: ' + LOGIN_URL + '\n' +
+            '📧 Email: ' + data.email + '\n' +
+            '🔑 Password: ' + data.password + '\n' +
+            'Please change your password after first login.\n' +
+            '— Manasa Tailor ✂️';
+          waTab.location.href = 'https://wa.me/' + toWhatsAppNumber(mobile) + '?text=' + encodeURIComponent(msg);
+        }
+      }
+
+      // createWalkInProfile can succeed server-side even when the response
+      // never makes it back cleanly (same issue as every write in this
+      // app). It already refuses a duplicate phone/email, so retrying it
+      // once doubles as a safe check: a real duplicate error means our own
+      // first attempt actually went through — but unlike other recoveries
+      // in this app, the generated password can't be recovered at that
+      // point (it's never stored anywhere in plain text), so the honest
+      // move is to say so rather than pretend this succeeded normally.
+      function recoverOrFail() {
+        callApi('createWalkInProfile', {
+          adminId: CURRENT_ADMIN.adminId, name: name, mobile: mobile, email: email, service: service, reason: reason
+        }).then(function (res) {
+          if (res && res.success) {
+            succeed(res.data);
+          } else if (res && /already exists/i.test(res.error || '')) {
+            if (waTab) waTab.close();
+            setStatus(status, 'This profile was likely already created, but the generated password couldn\'t be recovered (it\'s never stored in plain text, even here). Check the Customers tab to confirm it exists — there\'s no self-service password reset built yet, so getting this customer a working password needs the developer\'s help for now.', 'error');
+            btn.disabled = false;
+          } else {
+            if (waTab) waTab.close();
+            setStatus(status, (res && res.error) || 'Something went wrong.', 'error');
+            btn.disabled = false;
+          }
+        }).catch(function () {
+          if (waTab) waTab.close();
+          setStatus(status, "Couldn't reach the server. Please try again.", 'error');
+          btn.disabled = false;
+        });
+      }
+
       callApi('createWalkInProfile', {
         adminId: CURRENT_ADMIN.adminId, name: name, mobile: mobile, email: email, service: service, reason: reason
       }).then(function (res) {
         if (res && res.success) {
-          showWalkInCredentials(res.data, name);
-          if (waTab) {
-            var msg = 'Hi ' + name + '! 👋 Your Manasa Tailor profile is ready.\n' +
-              '🔐 Login: ' + LOGIN_URL + '\n' +
-              '📧 Email: ' + res.data.email + '\n' +
-              '🔑 Password: ' + res.data.password + '\n' +
-              'Please change your password after first login.\n' +
-              '— Manasa Tailor ✂️';
-            waTab.location.href = 'https://wa.me/' + toWhatsAppNumber(mobile) + '?text=' + encodeURIComponent(msg);
-          }
+          succeed(res.data);
         } else {
           if (waTab) waTab.close();
           setStatus(status, (res && res.error) || 'Something went wrong.', 'error');
           btn.disabled = false;
         }
-      }).catch(function () {
-        if (waTab) waTab.close();
-        setStatus(status, "Couldn't reach the server.", 'error');
-        btn.disabled = false;
-      });
+      }).catch(recoverOrFail);
 
       return false;
     }

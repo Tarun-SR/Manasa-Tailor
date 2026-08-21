@@ -616,6 +616,32 @@
       btn.disabled = true;
       setStatus(status, '', '');
 
+      // createOrder can succeed server-side even when the response never
+      // makes it back cleanly (confirmed live, same issue affects every
+      // write in this app). Unlike a lookup, createOrder isn't safe to
+      // just retry — a genuine resend would create a second order — so on
+      // failure, check whether one matching what was just submitted
+      // already exists before treating it as a real failure.
+      function recoverOrFail() {
+        callApi('getOrdersByUser', { userId: CURRENT_USER.userId }).then(function (checkRes) {
+          var justCreated = checkRes && checkRes.success && checkRes.data.orders.filter(function (o) {
+            return o.Garment === state.service && (Date.now() - new Date(o.CreatedAt).getTime()) < 60000;
+          })[0];
+          if (justCreated) {
+            if (waTab) waTab.location.href = buildAdminWhatsAppUrl();
+            showConfirmation();
+          } else {
+            if (waTab) waTab.close();
+            setStatus(status, "Couldn't reach the server. Please try again.", 'error');
+            btn.disabled = false;
+          }
+        }).catch(function () {
+          if (waTab) waTab.close();
+          setStatus(status, "Couldn't reach the server. Please try again.", 'error');
+          btn.disabled = false;
+        });
+      }
+
       callApi('createOrder', {
         userId: CURRENT_USER.userId,
         service: state.service,
@@ -633,11 +659,7 @@
           setStatus(status, (res && res.error) || 'Something went wrong. Please try again.', 'error');
           btn.disabled = false;
         }
-      }).catch(function () {
-        if (waTab) waTab.close();
-        setStatus(status, "Couldn't reach the server. Please check your connection and try again.", 'error');
-        btn.disabled = false;
-      });
+      }).catch(recoverOrFail);
     }
 
     function buildAdminWhatsAppUrl() {
