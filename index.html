@@ -686,10 +686,6 @@
     background: var(--cream)
   }
 
-  .order-bg {
-    background: var(--gold-light)
-  }
-
   .faq-bg {
     background: white
   }
@@ -745,85 +741,6 @@
     font-size: 13px;
     color: var(--muted);
     line-height: 1.8
-  }
-
-  .order-form {
-    max-width: 640px;
-    margin: 0 auto;
-    background: white;
-    border: 1px solid var(--border);
-    border-radius: 6px;
-    padding: 32px;
-    display: flex;
-    flex-direction: column;
-    gap: 18px
-  }
-
-  .order-row {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 18px
-  }
-
-  .order-field {
-    display: flex;
-    flex-direction: column;
-    gap: 6px
-  }
-
-  .order-field label {
-    font-size: 11px;
-    letter-spacing: 1px;
-    text-transform: uppercase;
-    color: var(--muted);
-    font-weight: 500
-  }
-
-  .order-field input,
-  .order-field select,
-  .order-field textarea {
-    font-family: 'Jost', sans-serif;
-    font-size: 13px;
-    color: var(--dark);
-    background: var(--cream);
-    border: 1px solid var(--border);
-    border-radius: 3px;
-    padding: 10px 12px;
-    outline: none
-  }
-
-  .order-field input:focus,
-  .order-field select:focus,
-  .order-field textarea:focus {
-    border-color: var(--rose)
-  }
-
-  .order-field textarea {
-    resize: vertical
-  }
-
-  #ordStatus {
-    font-size: 12px;
-    color: var(--muted)
-  }
-
-  #ordStatus.success {
-    color: var(--rose-dark);
-    font-weight: 500
-  }
-
-  #ordStatus.error {
-    color: #b23b3b;
-    font-weight: 500
-  }
-
-  @media (max-width: 640px) {
-    .order-row {
-      grid-template-columns: 1fr
-    }
-    .order-form {
-      padding: 24px 20px
-    }
   }
 
   .pricing-grid {
@@ -1492,7 +1409,6 @@
     <a href="#services" onclick="closeNav()">Services</a>
     <a href="#gallery" onclick="closeNav()">Gallery</a>
     <a href="#pricing" onclick="closeNav()">Pricing</a>
-    <a href="#order" onclick="closeNav()">Order</a>
     <a href="#contact" onclick="closeNav()">Contact</a>
   </div>
   <button class="nav-cta" onclick="handleBookNow()">Book Now</button>
@@ -1775,7 +1691,7 @@
         <li>Hemming & minor alterations</li>
         <!-- <li>1 free alteration included</li> -->
       </ul>
-      <button class="price-btn" onclick="document.querySelector('.order-form').scrollIntoView({behavior:'smooth'})">Book
+      <button class="price-btn" onclick="handleBookNow()">Book
         Now</button>
     </div>
     <div class="price-card featured">
@@ -1790,7 +1706,7 @@
         <li>Kids dresses</li>
         <!-- <li>2 free alterations included</li> -->
       </ul>
-      <button class="price-btn" onclick="document.querySelector('.order-form').scrollIntoView({behavior:'smooth'})">Book
+      <button class="price-btn" onclick="handleBookNow()">Book
         Now</button>
     </div>
     <div class="price-card">
@@ -1804,7 +1720,7 @@
         <li>Embroidery & patch work</li>
         <!-- <li>Unlimited alterations</li> -->
       </ul>
-      <button class="price-btn" onclick="document.querySelector('.order-form').scrollIntoView({behavior:'smooth'})">Book
+      <button class="price-btn" onclick="handleBookNow()">Book
         Now</button>
     </div>
   </div>
@@ -1812,79 +1728,7 @@
     given after fabric & design consultation.</p>
 </section>
 
-<!-- ORDER ENQUIRY & APPOINTMENT BOOKING — saves to Google Sheet, then confirms on WhatsApp -->
-<section class="section order-bg" id="order">
-  <div class="center">
-    <h2 class="section-title">Order & <em>Appointment</em></h2>
-    <p class="section-desc">Pick a date and time that works for you. We'll save it and confirm on WhatsApp — please
-      wait for our confirmation before visiting, in case a slot needs to shift.</p>
-  </div>
-  <form id="orderForm" class="order-form" onsubmit="return submitOrder(event)">
-    <div class="order-row">
-      <div class="order-field">
-        <label for="ordName">Your Name*</label>
-        <input type="text" id="ordName" name="name" required>
-      </div>
-      <div class="order-field">
-        <label for="ordPhone">Phone / WhatsApp*</label>
-        <input type="tel" id="ordPhone" name="phone" required placeholder="10-digit number">
-      </div>
-    </div>
-    <div class="order-row">
-      <div class="order-field">
-        <label for="ordGarment">Garment Type*</label>
-        <select id="ordGarment" name="garment" required>
-          <option value="">Select</option>
-          <option>Saree Blouse</option>
-          <option>Salwar / Churidar Set</option>
-          <option>Gown</option>
-          <option>Kurti / Top</option>
-          <option>Kids Frock</option>
-          <option>Bridal Wear</option>
-          <option>Alteration</option>
-          <option>Other</option>
-        </select>
-      </div>
-      <div class="order-field">
-        <label for="ordPurpose">Visit Purpose*</label>
-        <select id="ordPurpose" name="purpose" required>
-          <option value="">Select</option>
-          <option>Measurement / Consultation</option>
-          <option>Trial Fitting</option>
-          <option>Design Discussion</option>
-          <option>Delivery / Pickup</option>
-          <option>Alteration Drop-off</option>
-        </select>
-      </div>
-    </div>
-    <div class="order-row">
-      <div class="order-field">
-        <label for="ordDate">Preferred Date*</label>
-        <input type="date" id="ordDate" name="date" required>
-      </div>
-      <div class="order-field">
-        <label for="ordSlot">Preferred Time*</label>
-        <select id="ordSlot" name="slot" required>
-          <option value="">Select</option>
-          <option>Morning (10:30 AM – 1:00 PM)</option>
-          <option>Afternoon (1:00 PM – 4:00 PM)</option>
-          <option>Evening (4:00 PM – 7:00 PM)</option>
-        </select>
-      </div>
-    </div>
-    <div class="order-field">
-      <label for="ordNotes">Design Notes / Measurements</label>
-      <textarea id="ordNotes" name="notes" rows="3"
-        placeholder="Fabric details, reference photo you'll share on WhatsApp, measurements you already have, etc."></textarea>
-    </div>
-    <button type="submit" class="btn-primary" id="ordSubmitBtn" style="width:100%">Book Appointment</button>
-    <p id="ordStatus"></p>
-    <p style="font-size:11px;color:var(--muted);text-align:center">Open Mon – Sat, 10:30 AM – 7:00 PM · Sunday by
-      appointment only</p>
-  </form>
-</section>
-
-<!-- CONTACT — WhatsApp + Call, order form above handles structured enquiries -->
+<!-- CONTACT — WhatsApp + Call -->
 <section class="section contact" id="contact">
   <div class="contact-grid">
     <div>
@@ -2058,7 +1902,7 @@
         <li><a href="#about" style="color:inherit;text-decoration:none">About Manasa</a></li>
         <li><a href="#gallery" style="color:inherit;text-decoration:none">Our Work / Gallery</a></li>
         <li><a href="#pricing" style="color:inherit;text-decoration:none">Pricing</a></li>
-        <li><a href="#order" onclick="handleBookNow(); return false;" style="color:inherit;text-decoration:none">Book Appointment</a></li>
+        <li><a href="booking.html" onclick="handleBookNow(); return false;" style="color:inherit;text-decoration:none">Book Appointment</a></li>
         <li><a href="#faq" style="color:inherit;text-decoration:none">FAQ</a></li>
         <li><a href="#contact" style="color:inherit;text-decoration:none">Contact Us</a></li>
       </ul>
@@ -2148,85 +1992,6 @@
   }, { threshold: 0.12 });
 
   fadeEls.forEach(function(el) { observer.observe(el); });
-
-  // Order/booking date field: don't allow picking a date in the past
-  var ordDateEl = document.getElementById('ordDate');
-  if (ordDateEl) {
-    var today = new Date();
-    var yyyy = today.getFullYear();
-    var mm = String(today.getMonth() + 1).padStart(2, '0');
-    var dd = String(today.getDate()).padStart(2, '0');
-    ordDateEl.min = yyyy + '-' + mm + '-' + dd;
-  }
-</script>
-
-<!-- ORDER FORM: saves enquiry to Google Sheet via Apps Script, falls back to WhatsApp -->
-<script>
-  function buildWhatsAppMessage(data) {
-    var msg = "Hi Manasa Tailor! New appointment booking:\n" +
-      "Name: " + data.name + "\n" +
-      "Phone: " + data.phone + "\n" +
-      "Garment: " + data.garment + "\n" +
-      "Purpose: " + data.purpose + "\n" +
-      "Date: " + data.date + "\n" +
-      "Time: " + data.slot + "\n" +
-      (data.notes ? ("Notes: " + data.notes) : "");
-    return "https://wa.me/916360194277?text=" + encodeURIComponent(msg);
-  }
-
-  function submitOrder(e) {
-    e.preventDefault();
-    var btn = document.getElementById('ordSubmitBtn');
-    var status = document.getElementById('ordStatus');
-    var data = {
-      name: document.getElementById('ordName').value.trim(),
-      phone: document.getElementById('ordPhone').value.trim(),
-      garment: document.getElementById('ordGarment').value,
-      purpose: document.getElementById('ordPurpose').value,
-      date: document.getElementById('ordDate').value,
-      slot: document.getElementById('ordSlot').value,
-      notes: document.getElementById('ordNotes').value.trim()
-    };
-
-    btn.disabled = true;
-    btn.textContent = 'Booking…';
-    status.className = '';
-    status.textContent = '';
-
-    var configured = CONFIG.WEBAPP_URL && CONFIG.WEBAPP_URL.indexOf('PASTE_YOUR') === -1;
-
-    function goToWhatsApp(success) {
-      status.className = success ? 'success' : 'error';
-      status.textContent = success
-        ? 'Saved! Opening WhatsApp to confirm your appointment…'
-        : "Couldn't save automatically — opening WhatsApp so we don't lose your booking.";
-      window.open(buildWhatsAppMessage(data), '_blank');
-      document.getElementById('orderForm').reset();
-      btn.disabled = false;
-      btn.textContent = 'Book Appointment';
-    }
-
-    if (!configured) {
-      // No Sheet connected yet — just go straight to WhatsApp.
-      goToWhatsApp(true);
-      return false;
-    }
-
-    // Apps Script Web Apps don't return readable CORS responses from a plain fetch,
-    // so we fire-and-forget with no-cors and assume success if the request didn't throw.
-    fetch(CONFIG.WEBAPP_URL, {
-      method: 'POST',
-      mode: 'no-cors',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify(data)
-    }).then(function () {
-      goToWhatsApp(true);
-    }).catch(function () {
-      goToWhatsApp(false);
-    });
-
-    return false;
-  }
 </script>
 
 <!-- 3D HERO ACCENT: subtle floating thread particles behind the hero image, skipped on mobile / reduced-motion -->
