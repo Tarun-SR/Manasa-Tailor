@@ -25,6 +25,7 @@
       --dark: #2c1a20;
       --muted: #7a5a64;
       --border: #e8d5da;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     html, body { height: 100%; }
@@ -91,10 +92,11 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      transition: background .2s, transform .15s;
+      transition: background .25s var(--ease), transform .25s var(--ease), box-shadow .25s var(--ease);
     }
 
-    .btn-primary:hover:not(:disabled) { background: var(--rose); transform: translateY(-1px); }
+    .btn-primary:hover:not(:disabled) { background: var(--rose); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(139, 61, 82, .25); }
+    .btn-primary:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
     .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
 
     .btn-outline {
@@ -113,10 +115,11 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      transition: background .2s, color .2s, transform .15s;
+      transition: background .25s var(--ease), color .25s var(--ease), transform .25s var(--ease);
     }
 
-    .btn-outline:hover { background: var(--rose-dark); color: white; transform: translateY(-1px); }
+    .btn-outline:hover { background: var(--rose-dark); color: white; transform: translateY(-2px); }
+    .btn-outline:active { transform: translateY(0); }
 
     /* ── Booking wrap ── */
     .booking-wrap { max-width: 760px; margin: 0 auto; padding: 40px 24px 80px; flex: 1; width: 100%; }
@@ -128,16 +131,21 @@
       border: 2px solid var(--border); background: white; color: var(--muted);
       display: flex; align-items: center; justify-content: center;
       font-family: 'Cormorant Garamond', serif; font-size: 16px; font-weight: 600;
-      transition: all .2s;
+      transition: all .3s var(--ease);
     }
-    .step-item.active .step-circle { border-color: var(--rose-dark); background: var(--rose-dark); color: white; }
+    .step-item.active .step-circle { border-color: var(--rose-dark); background: var(--rose-dark); color: white; transform: scale(1.08); }
     .step-item.done .step-circle { border-color: var(--rose); background: var(--rose); color: white; }
-    .step-label { font-size: 10px; letter-spacing: .5px; text-transform: uppercase; color: var(--muted); font-weight: 500; white-space: nowrap; }
+    .step-label { font-size: 10px; letter-spacing: .5px; text-transform: uppercase; color: var(--muted); font-weight: 500; white-space: nowrap; transition: color .3s var(--ease); }
     .step-item.active .step-label { color: var(--rose-dark); font-weight: 600; }
-    .step-line { width: 60px; height: 1px; background: var(--border); margin: 17px 8px 0; }
+    .step-line { width: 60px; height: 1px; background: var(--border); margin: 17px 8px 0; transition: background .4s var(--ease); }
     .step-line.done { background: var(--rose); }
 
-    .booking-card { background: white; border: 1px solid var(--border); border-radius: 6px; padding: 36px 32px; }
+    .booking-card { background: white; border: 1px solid var(--border); border-radius: 6px; padding: 36px 32px; animation: bookingCardIn .5s var(--ease) both; }
+
+    @keyframes bookingCardIn {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
 
     .step-title { font-family: 'Cormorant Garamond', serif; font-size: 26px; font-weight: 400; color: var(--dark); margin-bottom: 6px; }
     .step-subtitle { font-size: 13px; color: var(--muted); margin-bottom: 28px; line-height: 1.7; }
@@ -149,9 +157,9 @@
       padding: 18px; border: 1px solid var(--border); border-radius: 4px;
       background: var(--cream); cursor: pointer; text-align: left;
       font-family: 'Jost', sans-serif;
-      transition: border-color .2s, background .2s, transform .15s;
+      transition: border-color .25s var(--ease), background .25s var(--ease), transform .25s var(--ease), box-shadow .25s var(--ease);
     }
-    .service-card:hover { border-color: var(--rose); transform: translateY(-1px); }
+    .service-card:hover { border-color: var(--rose); transform: translateY(-3px); box-shadow: 0 10px 22px rgba(44, 26, 32, .08); }
     .service-card.selected { border-color: var(--rose-dark); background: var(--rose-light); }
     .service-icon { font-size: 26px; }
     .service-name { font-family: 'Cormorant Garamond', serif; font-size: 17px; color: var(--dark); font-weight: 600; }

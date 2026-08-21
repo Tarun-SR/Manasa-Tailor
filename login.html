@@ -25,6 +25,7 @@
       --dark: #2c1a20;
       --muted: #7a5a64;
       --border: #e8d5da;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
     }
 
     html, body { height: 100%; }
@@ -90,7 +91,7 @@
       max-width: 440px;
       width: 100%;
       padding: 40px 36px;
-      animation: fadeUp .5s ease both;
+      animation: fadeUp .6s var(--ease) both;
     }
 
     @keyframes fadeUp {
@@ -146,7 +147,7 @@
       text-transform: uppercase;
       color: var(--muted);
       cursor: pointer;
-      transition: background .2s, color .2s;
+      transition: background .25s var(--ease), color .25s var(--ease);
     }
 
     .auth-tab.active { background: var(--rose-dark); color: white; }
@@ -185,6 +186,7 @@
       border-radius: 3px;
       padding: 11px 12px 11px 38px;
       outline: none;
+      transition: border-color .25s var(--ease);
     }
 
     .input-icon input:focus { border-color: var(--rose); }
@@ -200,10 +202,11 @@
       text-transform: uppercase;
       cursor: pointer;
       border-radius: 2px;
-      transition: background .2s, transform .15s;
+      transition: background .25s var(--ease), transform .25s var(--ease), box-shadow .25s var(--ease);
     }
 
-    .btn-primary:hover:not(:disabled) { background: var(--rose); transform: translateY(-1px); }
+    .btn-primary:hover:not(:disabled) { background: var(--rose); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(139, 61, 82, .25); }
+    .btn-primary:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
     .btn-primary:disabled { opacity: .6; cursor: not-allowed; }
 
     .auth-submit { width: 100%; margin-top: 4px; }

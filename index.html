@@ -57,6 +57,7 @@
     --dark: #2c1a20;
     --muted: #7a5a64;
     --border: #e8d5da;
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
   }
 
      /* ========== 3D TILT EFFECTS ========== */
@@ -80,7 +81,13 @@
     border-bottom: 1px solid var(--border);
     position: sticky;
     top: 0;
-    z-index: 100
+    z-index: 100;
+    box-shadow: 0 4px 16px rgba(44, 26, 32, 0);
+    transition: box-shadow .3s var(--ease);
+  }
+
+  .nav.scrolled {
+    box-shadow: 0 4px 16px rgba(44, 26, 32, .08);
   }
 
   .nav-logo {
@@ -188,6 +195,20 @@
     gap: 12px;
     flex-wrap: wrap
   }
+
+  /* Hero sits above the fold, so it never crosses the scroll-reveal
+     IntersectionObserver — this gives it its own one-time entrance instead. */
+  @keyframes heroRise {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .hero-left > * { animation: heroRise .7s var(--ease) both; }
+  .hero-left > *:nth-child(1) { animation-delay: .05s; }
+  .hero-left > *:nth-child(2) { animation-delay: .15s; }
+  .hero-left > *:nth-child(3) { animation-delay: .25s; }
+  .hero-left > *:nth-child(4) { animation-delay: .35s; }
+  .hero-left > *:nth-child(5) { animation-delay: .45s; }
+  .hero-right { animation: heroRise .8s var(--ease) .3s both; }
 
   .btn-primary {
     background: var(--rose-dark);
@@ -482,11 +503,13 @@
     border: 1px solid var(--border);
     border-radius: 4px;
     padding: 24px;
-    transition: border-color .2s
+    transition: border-color .3s var(--ease), transform .3s var(--ease), box-shadow .3s var(--ease)
   }
 
   .svc-card:hover {
-    border-color: var(--rose)
+    border-color: var(--rose);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 28px rgba(44, 26, 32, .08)
   }
 
   .svc-icon {
@@ -637,6 +660,11 @@
     border-radius: 6px;
     border: none;
     background: white;
+    transition: box-shadow .35s var(--ease);
+  }
+
+  .gallery-item:hover {
+    box-shadow: 0 16px 32px rgba(44, 26, 32, .14);
   }
 
   .gallery-item img {
@@ -644,11 +672,11 @@
     height: 100%;
     object-fit: cover;
     display: block;
-    transition: transform .4s ease;
+    transition: transform .5s var(--ease);
   }
 
   .gallery-item:hover img {
-    transform: scale(1.05);
+    transform: scale(1.06);
   }
 
   .gallery-item {
@@ -754,7 +782,13 @@
     border: 1px solid var(--border);
     border-radius: 4px;
     padding: 28px;
-    text-align: center
+    text-align: center;
+    transition: transform .3s var(--ease), box-shadow .3s var(--ease)
+  }
+
+  .price-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 28px rgba(44, 26, 32, .08)
   }
 
   .price-card.featured {
@@ -1363,17 +1397,19 @@
     scroll-behavior: smooth;
   }
 
-  .btn-primary { transition: background .2s, transform .15s; }
-  .btn-primary:hover { background: var(--rose); transform: translateY(-1px); }
-  .btn-outline { transition: background .2s, color .2s, transform .15s; }
-  .btn-outline:hover { background: var(--rose-dark); color: white; transform: translateY(-1px); }
-  .nav-cta { transition: background .2s, transform .15s; }
-  .nav-cta:hover { background: var(--rose-dark); transform: translateY(-1px); }
-  .price-btn { transition: background .2s, color .2s, transform .15s; }
-  .price-btn:hover { background: var(--rose-dark); color: white; transform: translateY(-1px); }
+  .btn-primary { transition: background .25s var(--ease), transform .25s var(--ease), box-shadow .25s var(--ease); }
+  .btn-primary:hover { background: var(--rose); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(139, 61, 82, .25); }
+  .btn-primary:active { transform: translateY(0); box-shadow: none; }
+  .btn-outline { transition: background .25s var(--ease), color .25s var(--ease), transform .25s var(--ease); }
+  .btn-outline:hover { background: var(--rose-dark); color: white; transform: translateY(-2px); }
+  .btn-outline:active { transform: translateY(0); }
+  .nav-cta { transition: background .25s var(--ease), transform .25s var(--ease); }
+  .nav-cta:hover { background: var(--rose-dark); transform: translateY(-2px); }
+  .price-btn { transition: background .25s var(--ease), color .25s var(--ease), transform .25s var(--ease); }
+  .price-btn:hover { background: var(--rose-dark); color: white; transform: translateY(-2px); }
   .price-card.featured .price-btn:hover { background: var(--rose); }
 
-  .fade-up { opacity: 0; transform: translateY(28px); transition: opacity .55s ease, transform .55s ease; }
+  .fade-up { opacity: 0; transform: translateY(28px); transition: opacity .7s var(--ease), transform .7s var(--ease); }
   .fade-up.visible { opacity: 1; transform: translateY(0); }
 
   .hamburger { display: none; flex-direction: column; gap: 5px; cursor: pointer; background: none; border: none; padding: 4px; }
@@ -1663,7 +1699,7 @@
   </div>
   <div style="text-align:center;margin-top:32px">
     <p style="font-size:13px;color:var(--muted);margin-bottom:16px">Want to see more of our work? View the full portfolio on Google Drive.</p>
-    <a href="https://drive.google.com/drive/folders/1mwQGCrLbtLHrh7RDKkRWkXzl-oAUsvgj?usp=sharing" target="_blank" rel="noopener" class="btn-drive">
+    <a href="https://drive.google.com/drive/folders/1gWMWjD5se_sw4dsEKWZXuCbZwQde6Q8T?usp=sharing" target="_blank" rel="noopener" class="btn-drive">
       <i class="ti ti-brand-google-drive" aria-hidden="true"></i>
       View Full Portfolio
     </a>
@@ -1919,7 +1955,7 @@
   <div class="footer-bottom">
     <p>© 2025 Manasa Tailor. All rights reserved.</p>
     <p>Made with <span style="color:var(--rose)">♥</span> for every woman</p>
-    <p><a href="admin.html" style="color:rgba(255,255,255,.25);text-decoration:none;font-size:10px">Admin Login</a></p>
+    <p><a href="admin.html" style="color:rgba(255,255,255,.45);text-decoration:none;font-size:11px" onmouseover="this.style.color='rgba(255,255,255,.75)'" onmouseout="this.style.color='rgba(255,255,255,.45)'">Staff Login</a></p>
   </div>
 </footer>
 <script>
@@ -1974,6 +2010,15 @@
       item.classList.add('open');
       answer.style.maxHeight = answer.scrollHeight + 'px';
     }
+  }
+
+  // Nav gains a soft shadow once the page scrolls under it, so it reads as
+  // floating above the content rather than flush against it.
+  var navEl = document.querySelector('.nav');
+  if (navEl) {
+    var toggleNavShadow = function () { navEl.classList.toggle('scrolled', window.scrollY > 8); };
+    window.addEventListener('scroll', toggleNavShadow, { passive: true });
+    toggleNavShadow();
   }
 
   // Scroll entrance animation
