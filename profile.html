@@ -430,11 +430,18 @@
     }
 
     function loadNotifications() {
-      callApi('getNotifications', { userId: CURRENT_USER.userId }).then(function (res) {
+      // Deferred into .then() so a synchronous throw from callApi() (e.g.
+      // CONFIG not loaded yet) becomes a normal rejection instead of an
+      // uncaught exception — see the identical comment in dashboard.html's
+      // loadDashboardData for the full reasoning.
+      Promise.resolve().then(function () {
+        return callApi('getNotifications', { userId: CURRENT_USER.userId });
+      }).then(function (res) {
         notifications = (res && res.success) ? res.data.notifications : [];
         renderNotifDropdown();
         updateNotifBadge();
-      }).catch(function () {
+      }).catch(function (err) {
+        console.error('loadNotifications failed:', err);
         document.getElementById('notifList').innerHTML = '<p class="notif-empty">Couldn\'t load notifications.</p>';
       });
     }

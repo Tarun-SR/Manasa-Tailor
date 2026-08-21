@@ -729,11 +729,17 @@
     // ---------- Data loading ----------
 
     function loadAdminData() {
-      Promise.all([
-        callApi('getAllOrders', { adminId: CURRENT_ADMIN.adminId }),
-        callApi('getAllUsers', { adminId: CURRENT_ADMIN.adminId }),
-        callApi('getNotifications', { userId: CURRENT_ADMIN.adminId })
-      ]).then(function (results) {
+      // See loadDashboardData's identical comment in dashboard.html — this
+      // defers Promise.all's construction so a synchronous throw from any
+      // callApi() call becomes a normal rejection instead of an uncaught
+      // exception that would leave every table stuck on "Loading…" forever.
+      Promise.resolve().then(function () {
+        return Promise.all([
+          callApi('getAllOrders', { adminId: CURRENT_ADMIN.adminId }),
+          callApi('getAllUsers', { adminId: CURRENT_ADMIN.adminId }),
+          callApi('getNotifications', { userId: CURRENT_ADMIN.adminId })
+        ]);
+      }).then(function (results) {
         var ordersRes = results[0], usersRes = results[1], notifsRes = results[2];
 
         allOrders = (ordersRes && ordersRes.success) ? ordersRes.data.orders : [];
@@ -749,7 +755,8 @@
         renderCustomersTable();
         renderNotifDropdown();
         updateNotifBadge();
-      }).catch(function () {
+      }).catch(function (err) {
+        console.error('loadAdminData failed:', err);
         document.getElementById('ordersTableBody').innerHTML = '<tr><td colspan="6" class="table-empty">Couldn\'t load orders. Please refresh.</td></tr>';
       });
     }
