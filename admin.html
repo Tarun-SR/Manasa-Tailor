@@ -102,6 +102,21 @@
     .login-title em { font-style: italic; color: var(--rose); }
     .auth-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
     .auth-field label { font-size: 11px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+    /* Generic field styling for any .auth-field not using the .input-icon
+       variant (the class create/edit form, mainly) — every other form on
+       this page either had .input-icon or per-field inline styles; this
+       gives new forms the same look for free instead of repeating it. */
+    .auth-field input, .auth-field select, .auth-field textarea {
+      width: 100%; font-family: 'Jost', sans-serif; font-size: 13px; color: var(--dark); background: var(--cream);
+      border: 1px solid var(--border); border-radius: 3px; padding: 11px 12px; outline: none;
+      transition: border-color .25s var(--ease), box-shadow .25s var(--ease);
+    }
+    .auth-field select { background: white; cursor: pointer; }
+    .auth-field textarea { resize: vertical; }
+    .auth-field input:hover, .auth-field select:hover, .auth-field textarea:hover { border-color: var(--rose); }
+    .auth-field input:focus, .auth-field select:focus, .auth-field textarea:focus {
+      border-color: var(--rose); box-shadow: 0 0 0 3px rgba(201, 114, 138, .14);
+    }
     .input-icon { position: relative; display: flex; align-items: center; }
     .input-icon i { position: absolute; left: 12px; color: var(--rose); font-size: 16px; pointer-events: none; }
     .input-icon input {
@@ -386,8 +401,13 @@
     .detail-panel-body.split { flex-direction: row; flex-wrap: wrap; align-items: flex-start; }
     .detail-panel-body.split > form { flex: 1 1 340px; }
     .detail-panel-body.split > .class-preview-col { flex: 1 1 340px; position: sticky; top: 0; }
-    .checkbox-row { display: flex; gap: 16px; flex-wrap: wrap; }
-    .checkbox-row label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--dark); font-weight: 400; text-transform: none; letter-spacing: 0; cursor: pointer; }
+    .checkbox-row {
+      display: flex; gap: 18px; flex-wrap: wrap; background: var(--cream); border: 1px solid var(--border);
+      border-radius: 3px; padding: 12px 14px; transition: border-color .25s var(--ease);
+    }
+    .checkbox-row:hover { border-color: var(--rose); }
+    .checkbox-row label { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--dark); font-weight: 400; text-transform: none; letter-spacing: 0; cursor: pointer; }
+    .checkbox-row input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--rose-dark); cursor: pointer; }
     .field-note { font-size: 10.5px; color: var(--muted); margin-top: 4px; }
 
     /* ── Classes: poster preview (mirrors classes.html's public poster card) ── */
