@@ -806,6 +806,7 @@
       if (type === 'Quotation Sent') return 'ti-file-invoice';
       if (type === 'Order Confirmed') return 'ti-checkbox';
       if (type === 'Delivered') return 'ti-truck-delivery';
+      if (type === 'Class Published') return 'ti-school';
       return 'ti-bell';
     }
 
@@ -818,7 +819,8 @@
         'Quotation Requested': 'Order Received',
         'Quotation Sent': 'Quotation Ready',
         'Order Confirmed': 'Order Confirmed',
-        'Ready for Collection': 'Ready for Collection'
+        'Ready for Collection': 'Ready for Collection',
+        'Class Published': 'New Tailoring Class'
       };
       return map[type] || 'Status Update';
     }
@@ -881,11 +883,16 @@
 
       document.getElementById('notifDropdown').classList.remove('open');
 
+      if (n.Type === 'Class Published') {
+        window.location.href = 'classes.html';
+        return;
+      }
+
       if (n.OrderID) {
         var card = document.getElementById('order-' + n.OrderID);
         if (card) {
           var detail = document.getElementById('detail-' + n.OrderID);
-          if (detail && detail.style.display === 'none') toggleOrder(n.OrderID);
+          if (detail && !detail.classList.contains('open')) toggleOrder(n.OrderID);
           card.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       }

@@ -74,7 +74,12 @@ var CALLAPI_SAFE_RETRY_ACTIONS = [
   // included here on purpose: those append new rows, so a blind retry could
   // create a duplicate class or a duplicate enrollment instead of just
   // re-confirming the same one.
-  'updateClass', 'updateEnrollmentStatus'
+  'updateClass', 'updateEnrollmentStatus',
+  // deleteClass is idempotent in the sense that matters here: replaying it
+  // after it already succeeded just hits deleteClass's own "Class not
+  // found" branch (a harmless, already-true answer) rather than deleting
+  // something else or erroring in a new way. Same for deleteCustomer.
+  'deleteClass', 'deleteCustomer'
 ];
 
 // Confirmed live: a plain JSON.stringify'd object (raw braces/quotes/colons/
@@ -140,8 +145,11 @@ function openWhatsAppRedirectTab_() {
       '<title>Redirecting to WhatsApp…</title>' +
       '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
       '<style>' +
-      'body{margin:0;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
-      'gap:16px;padding:24px;text-align:center;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;' +
+      'html{-webkit-text-size-adjust:100%;text-size-adjust:100%}' +
+      '*{box-sizing:border-box}' +
+      'body{margin:0;width:100%;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+      'gap:16px;padding:max(24px,env(safe-area-inset-top)) max(24px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(24px,env(safe-area-inset-left));' +
+      'text-align:center;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;' +
       'background:#fdf8f5;color:#2c1a20}' +
       '.spinner{width:36px;height:36px;border:3px solid #e8d5da;border-top-color:#25d366;border-radius:50%;' +
       'animation:wa-spin .8s linear infinite}' +

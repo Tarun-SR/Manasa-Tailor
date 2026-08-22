@@ -440,6 +440,7 @@
       if (type === 'Quotation Sent') return 'ti-file-invoice';
       if (type === 'Order Confirmed') return 'ti-checkbox';
       if (type === 'Delivered') return 'ti-truck-delivery';
+      if (type === 'Class Published') return 'ti-school';
       return 'ti-bell';
     }
 
@@ -448,7 +449,8 @@
         'Quotation Requested': 'Order Received',
         'Quotation Sent': 'Quotation Ready',
         'Order Confirmed': 'Order Confirmed',
-        'Ready for Collection': 'Ready for Collection'
+        'Ready for Collection': 'Ready for Collection',
+        'Class Published': 'New Tailoring Class'
       };
       return map[type] || 'Status Update';
     }
@@ -501,14 +503,16 @@
     }
 
     // This page doesn't render an orders list, so "navigate to the relevant
-    // order" means sending the customer to dashboard.html, where it lives.
+    // order" means sending the customer to dashboard.html, where it lives —
+    // except a class announcement isn't order-related at all, so that one
+    // goes straight to classes.html instead.
     function handleNotifClick(notificationId) {
       var n = notifications.filter(function (x) { return x.NotificationID === notificationId; })[0];
       if (!n) return;
       if (!n.IsRead) {
         callApi('markNotificationRead', { userId: CURRENT_USER.userId, notificationId: notificationId }).catch(function () {});
       }
-      window.location.href = 'dashboard.html';
+      window.location.href = n.Type === 'Class Published' ? 'classes.html' : 'dashboard.html';
     }
 
     document.getElementById('notifBellBtn').addEventListener('click', function (e) {
