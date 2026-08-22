@@ -175,7 +175,8 @@ var ACTIONS = {
   createEnrollment: createEnrollment,
   getAllEnrollments: getAllEnrollments,
   updateEnrollmentStatus: updateEnrollmentStatus,
-  deleteClass: deleteClass
+  deleteClass: deleteClass,
+  deleteCustomer: deleteCustomer
 };
 
 /** One-time setup: creates every tab from SHEET_HEADERS if it doesn't already exist. */
@@ -872,7 +873,46 @@ function createClass(data) {
     appendRow_(getSheet_(SHEET_NAMES.CLASSES), SHEET_HEADERS.Classes, record);
   });
 
+  if (status === 'Published') {
+    notifyAllCustomersOfNewClass_(title);
+  }
+
   return ok_({ classId: record.ClassID });
+}
+
+/**
+ * Every existing customer gets a Notification row when a class newly
+ * becomes Published — a single batch write (one setValues call covering
+ * every row) rather than one appendRow_/withLock_ per customer, since a
+ * lock-per-row loop would serialize badly once there are more than a
+ * handful of accounts. Deliberately not sent on every edit of an
+ * already-published class — see the "previousStatus" guard at both call
+ * sites — so tweaking a typo doesn't re-spam everyone.
+ */
+function notifyAllCustomersOfNewClass_(classTitle) {
+  var users = sheetToObjects_(getSheet_(SHEET_NAMES.USERS));
+  if (!users.length) return;
+
+  var now = new Date();
+  var headers = SHEET_HEADERS.Notifications;
+  var message = 'New tailoring class now open: "' + classTitle + '". Check it out!';
+  var rows = users.map(function (u) {
+    var record = {
+      NotificationID: genId_('NOT'),
+      UserID: u.UserID,
+      Message: message,
+      Type: 'Class Published',
+      IsRead: false,
+      CreatedAt: now,
+      OrderID: ''
+    };
+    return headers.map(function (h) { return record.hasOwnProperty(h) ? record[h] : ''; });
+  });
+
+  withLock_(function () {
+    var sheet = getSheet_(SHEET_NAMES.NOTIFICATIONS);
+    sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, headers.length).setValues(rows);
+  });
 }
 
 /**
@@ -927,6 +967,10 @@ function updateClass(data) {
       sheet.getRange(found.rowIndex, headers.indexOf(col) + 1).setValue(updates[col]);
     });
   });
+
+  if (updates.Status === 'Published' && found.row.Status !== 'Published') {
+    notifyAllCustomersOfNewClass_(updates.Title || found.row.Title);
+  }
 
   return ok_({ classId: classId });
 }
@@ -1226,6 +1270,39 @@ function resetUserPassword(data) {
   });
 
   return ok_({ userId: userId, name: found.row.Name, email: found.row.Email, phone: found.row.Phone, password: newPassword });
+}
+
+/**
+ * Same "never silently destroy data with dependents" bias as deleteClass:
+ * a customer with any order history keeps their account, since deleting it
+ * would leave that history's UserID pointing at nothing. There's no
+ * "Closed"-style escape hatch for customers the way there is for classes —
+ * a customer with orders just isn't deletable from here, full stop.
+ */
+function deleteCustomer(data) {
+  var adminErr = requireAdmin_(data.adminId);
+  if (adminErr) return adminErr;
+
+  var userId = (data.userId || '').trim();
+  if (!userId) {
+    return fail_('userId is required');
+  }
+  var found = findById_(SHEET_NAMES.USERS, 'UserID', userId);
+  if (!found) {
+    return fail_('Customer not found');
+  }
+
+  var hasOrders = sheetToObjects_(getSheet_(SHEET_NAMES.ORDERS))
+    .some(function (row) { return row.UserID === userId; });
+  if (hasOrders) {
+    return fail_('This customer has order history and can\'t be deleted.');
+  }
+
+  withLock_(function () {
+    getSheet_(SHEET_NAMES.USERS).deleteRow(found.rowIndex);
+  });
+
+  return ok_({ userId: userId });
 }
 
 function generateWalkInUsername_(name, phone) {

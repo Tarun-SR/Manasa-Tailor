@@ -160,6 +160,20 @@
     /* ── Notification bell ── */
     .notif-wrap { position: relative; }
     .notif-bell { position: relative; background: none; border: none; cursor: pointer; padding: 8px; color: var(--muted); font-size: 20px; display: flex; align-items: center; transition: color .2s; }
+
+    /* Branded refresh control — an "MT" monogram instead of a generic
+       reload glyph, matching the logo's initials rather than a stock icon. */
+    .mt-refresh-btn {
+      width: 34px; height: 34px; border-radius: 50%; border: 1.5px solid var(--rose-dark);
+      background: white; color: var(--rose-dark); font-family: 'Cormorant Garamond', serif;
+      font-weight: 700; font-size: 12px; letter-spacing: .3px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      transition: background .25s var(--ease), color .25s var(--ease), transform .25s var(--ease), box-shadow .25s var(--ease);
+    }
+    .mt-refresh-btn:hover { background: var(--rose-dark); color: white; transform: translateY(-1px); box-shadow: 0 6px 14px rgba(139, 61, 82, .25); }
+    .mt-refresh-btn:active { transform: translateY(0) scale(.94); }
+    .mt-refresh-btn.spinning { animation: mtSpin .7s linear; pointer-events: none; opacity: .7; }
+    @keyframes mtSpin { to { transform: rotate(360deg); } }
     .notif-bell:hover { color: var(--rose-dark); }
     .notif-badge {
       position: absolute; top: 2px; right: 2px; background: var(--rose-dark); color: white; font-size: 9px; font-weight: 600;
@@ -515,6 +529,7 @@
     <nav class="nav">
       <a href="index.html" target="_blank" rel="noopener" class="nav-logo">Manasa Tailor <span>Admin</span></a>
       <div class="nav-right">
+        <button type="button" class="mt-refresh-btn" id="mtRefreshBtn" onclick="manualRefresh()" title="Refresh data" aria-label="Refresh data">MT</button>
         <div class="notif-wrap">
           <button type="button" class="notif-bell" id="notifBellBtn" aria-haspopup="true" aria-expanded="false" aria-label="Notifications">
             <i class="ti ti-bell" aria-hidden="true"></i>
@@ -1056,6 +1071,43 @@
       }
     }
 
+    // ---------- Refresh (manual + auto) ----------
+    // Re-fetches whichever view is currently on screen. This exists
+    // because several admin actions on this app's flaky transport can
+    // succeed server-side even when the browser never sees a clean
+    // response (documented throughout this file) — rather than chase every
+    // such call site individually, a one-tap refresh (and a quiet periodic
+    // one) means the admin never has to fall back to a full page reload
+    // just to find out whether something actually went through.
+    function refreshActiveView() {
+      if (currentView === 'orders' || currentView === 'customers') {
+        loadAdminData();
+      } else if (currentView === 'classes') {
+        loadClassesAdmin();
+        loadEnrollmentsAdmin();
+      }
+    }
+
+    function manualRefresh() {
+      var btn = document.getElementById('mtRefreshBtn');
+      btn.classList.remove('spinning');
+      void btn.offsetWidth; // restart the animation if clicked again mid-spin
+      btn.classList.add('spinning');
+      setTimeout(function () { btn.classList.remove('spinning'); }, 700);
+      refreshActiveView();
+    }
+
+    var AUTO_REFRESH_INTERVAL_MS = 45000;
+    setInterval(function () {
+      // Skip while a backgrounded tab isn't visible, and skip while the
+      // admin has an editing panel open — an unannounced background
+      // refresh mid-edit would be more disruptive than useful there.
+      if (document.visibilityState !== 'visible') return;
+      if (document.getElementById('orderDetailPanel').classList.contains('open')) return;
+      if (document.getElementById('classPanel').classList.contains('open')) return;
+      refreshActiveView();
+    }, AUTO_REFRESH_INTERVAL_MS);
+
     // ---------- Summary cards ----------
 
     function renderSummaryCards() {
@@ -1186,6 +1238,11 @@
             '<td><div class="table-action-cell">' +
               '<button type="button" class="btn-outline table-action-btn btn-sm" onclick="filterByCustomer(\'' + u.UserID + '\')">View Orders</button>' +
               '<button type="button" class="btn-outline table-action-btn btn-sm" data-user-id="' + esc(u.UserID) + '" data-user-name="' + esc(u.Name) + '" data-user-phone="' + esc(u.Phone) + '" onclick="resetCustomerPassword(this)">Reset Password</button>' +
+              '<button type="button" class="btn-outline table-action-btn btn-sm" style="color:#b23b3b;border-color:#b23b3b" ' +
+                (userOrders.length
+                  ? 'disabled title="Has order history — can\'t be deleted"'
+                  : 'onclick="deleteCustomerPrompt(\'' + u.UserID + '\', \'' + esc(u.Name).replace(/'/g, "\\'") + '\')"') +
+              '>Delete</button>' +
             '</div></td>' +
           '</tr>';
       }).join('');
@@ -1935,6 +1992,10 @@
             '— Manasa Tailor ✂️';
           waTab.location.href = 'https://wa.me/' + toWhatsAppNumber(mobile) + '?text=' + encodeURIComponent(msg);
         }
+        // Refresh right away rather than only when the credentials modal is
+        // later closed — the new customer/order should show up in the
+        // background lists immediately, not depend on that dismiss click.
+        loadAdminData();
       }
 
       // createWalkInProfile can succeed server-side even when the response
@@ -2075,6 +2136,18 @@
       });
     }
 
+    function deleteCustomerPrompt(userId, name) {
+      if (!confirm('Delete "' + name + '"? This can\'t be undone.')) return;
+      callApi('deleteCustomer', { adminId: CURRENT_ADMIN.adminId, userId: userId })
+        .then(function (res) {
+          if (!res || !res.success) alert((res && res.error) || 'Could not delete the customer.');
+        })
+        .catch(function () {
+          alert("Couldn't confirm that reached the server — refreshing to show the current state.");
+        })
+        .then(loadAdminData);
+    }
+
     function credentialRow(label, value) {
       return '' +
         '<div class="credential-row">' +
@@ -2104,6 +2177,7 @@
       if (type === 'New Quotation Request') return 'ti-file-invoice';
       if (type === 'Customer Approved') return 'ti-circle-check';
       if (type === 'Revision Requested') return 'ti-refresh';
+      if (type === 'New Class Enrollment') return 'ti-school';
       return 'ti-bell';
     }
 
@@ -2113,7 +2187,8 @@
       var map = {
         'New Quotation Request': 'New Quotation Request',
         'Customer Approved': 'Customer Approved',
-        'Revision Requested': 'Revision Requested'
+        'Revision Requested': 'Revision Requested',
+        'New Class Enrollment': 'New Class Enrollment'
       };
       return map[type] || 'Notification';
     }
@@ -2172,6 +2247,11 @@
         callApi('markNotificationRead', { userId: CURRENT_ADMIN.adminId, notificationId: notificationId }).catch(function () {});
       }
       document.getElementById('notifDropdown').classList.remove('open');
+      if (n && n.Type === 'New Class Enrollment') {
+        switchView('classes');
+        switchClassSubview('enrollments');
+        return;
+      }
       if (orderId) openOrderDetail(orderId);
     }
 
@@ -2253,18 +2333,21 @@
         '</div>';
     }
 
+    // Both of these always end with loadClassesAdmin(), success or not —
+    // this app's Apps Script transport can drop a response even when the
+    // write went through server-side (documented at length elsewhere in
+    // this file), so a failure here doesn't necessarily mean nothing
+    // happened. Re-fetching afterward shows the true current state instead
+    // of leaving stale data on screen until a manual page reload.
     function toggleClassPublish(classId, newStatus) {
       callApi('updateClass', { adminId: CURRENT_ADMIN.adminId, classId: classId, status: newStatus })
         .then(function (res) {
-          if (res && res.success) {
-            loadClassesAdmin();
-          } else {
-            alert((res && res.error) || 'Could not update the class.');
-          }
+          if (!res || !res.success) alert((res && res.error) || 'Could not update the class.');
         })
         .catch(function () {
-          alert("Couldn't reach the server. Please try again.");
-        });
+          alert("Couldn't confirm that reached the server — refreshing to show the current state.");
+        })
+        .then(loadClassesAdmin);
     }
 
     function deleteClassPrompt(classId) {
@@ -2272,15 +2355,12 @@
       if (!confirm('Delete "' + (cls ? cls.Title : 'this class') + '"? This can\'t be undone.')) return;
       callApi('deleteClass', { adminId: CURRENT_ADMIN.adminId, classId: classId })
         .then(function (res) {
-          if (res && res.success) {
-            loadClassesAdmin();
-          } else {
-            alert((res && res.error) || 'Could not delete the class.');
-          }
+          if (!res || !res.success) alert((res && res.error) || 'Could not delete the class.');
         })
         .catch(function () {
-          alert("Couldn't reach the server. Please try again.");
-        });
+          alert("Couldn't confirm that reached the server — refreshing to show the current state.");
+        })
+        .then(loadClassesAdmin);
     }
 
     // ---------- Create/edit class panel ----------
@@ -2585,10 +2665,12 @@
             renderEnrollmentsTable();
           } else {
             alert((res && res.error) || 'Could not save notes.');
+            loadEnrollmentsAdmin();
           }
         })
         .catch(function () {
-          alert("Couldn't reach the server. Please try again.");
+          alert("Couldn't confirm that reached the server — refreshing to show the current state.");
+          loadEnrollmentsAdmin();
         });
     }
   </script>
