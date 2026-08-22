@@ -98,6 +98,8 @@
     .btn-primary:hover:not(:disabled) { background: var(--rose); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(139, 61, 82, .25); }
     .btn-primary:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
     .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .btn-spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid rgba(255, 255, 255, .45); border-top-color: currentColor; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px; margin-right: 7px; }
 
     .btn-outline {
       background: transparent;
@@ -144,6 +146,12 @@
 
     @keyframes bookingCardIn {
       from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .step-panel.active-step { animation: stepFadeIn .4s var(--ease) both; }
+    @keyframes stepFadeIn {
+      from { opacity: 0; transform: translateY(10px); }
       to   { opacity: 1; transform: translateY(0); }
     }
 
@@ -469,6 +477,7 @@
       { key: 'Saree Blouse', icon: '✂️', desc: 'Custom blouse stitching' },
       { key: 'Salwar / Churidar Set', icon: '👗', desc: 'Full set or individual pieces' },
       { key: 'Gown', icon: '🎀', desc: 'Party wear / occasion gown' },
+      { key: 'Bridal Wear', icon: '👰', desc: 'Bridal blouse, heavy embroidery, wedding wear' },
       { key: 'Kurti / Top', icon: '👚', desc: 'Casual or formal tops' },
       { key: 'Kids Frock', icon: '🌸', desc: 'Girls dresses and frocks' },
       { key: 'Alterations', icon: '🪡', desc: 'Modify existing garments' }
@@ -481,6 +490,7 @@
       'Saree Blouse': ['Bust', 'Waist', 'Shoulder Width', 'Sleeve Length', 'Back Length', 'Front Length', 'Neck Depth (Front)', 'Neck Depth (Back)'],
       'Salwar / Churidar Set': ['Bust', 'Waist', 'Hip', 'Shoulder Width', 'Sleeve Length', 'Kurta Length', 'Salwar Length', 'Inseam'],
       'Gown': ['Bust', 'Waist', 'Hip', 'Shoulder Width', 'Sleeve Length', 'Total Length', 'Back Length'],
+      'Bridal Wear': ['Bust', 'Waist', 'Hip', 'Shoulder Width', 'Sleeve Length', 'Blouse Length', 'Neck Depth (Front)', 'Neck Depth (Back)', 'Work Type'],
       'Kurti / Top': ['Bust', 'Waist', 'Hip', 'Shoulder Width', 'Sleeve Length', 'Kurti Length'],
       'Kids Frock': ['Chest', 'Waist', 'Hip', 'Shoulder Width', 'Sleeve Length', 'Dress Length', 'Age']
     };
@@ -514,6 +524,17 @@
     function setStatus(el, message, type) {
       el.textContent = message;
       el.className = 'form-status' + (type ? ' ' + type : '');
+    }
+
+    function setBtnLoading(btn, loading, loadingText) {
+      if (loading) {
+        if (btn.dataset.originalHtml === undefined) btn.dataset.originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="btn-spinner"></span>' + (loadingText || 'Please wait…');
+      } else {
+        if (btn.dataset.originalHtml !== undefined) btn.innerHTML = btn.dataset.originalHtml;
+        btn.disabled = false;
+      }
     }
 
     // callApi() is defined once, shared, in config.js.
@@ -728,7 +749,7 @@
       // order is confirmed, and it's closed again if the request fails.
       var waTab = openWhatsAppRedirectTab_();
 
-      btn.disabled = true;
+      setBtnLoading(btn, true, 'Submitting…');
       setStatus(status, '', '');
 
       // createOrder can succeed server-side even when the response never
@@ -748,12 +769,12 @@
           } else {
             if (waTab) waTab.close();
             setStatus(status, "Couldn't reach the server. Please try again.", 'error');
-            btn.disabled = false;
+            setBtnLoading(btn, false);
           }
         }).catch(function () {
           if (waTab) waTab.close();
           setStatus(status, "Couldn't reach the server. Please try again.", 'error');
-          btn.disabled = false;
+          setBtnLoading(btn, false);
         });
       }
 
@@ -772,7 +793,7 @@
         } else {
           if (waTab) waTab.close();
           setStatus(status, (res && res.error) || 'Something went wrong. Please try again.', 'error');
-          btn.disabled = false;
+          setBtnLoading(btn, false);
         }
       }).catch(recoverOrFail);
     }
@@ -800,8 +821,13 @@
     function goToStep(n) {
       currentStep = n;
       for (var i = 1; i <= 3; i++) {
-        document.getElementById('stepPanel' + i).style.display = (i === n) ? 'block' : 'none';
+        var panel = document.getElementById('stepPanel' + i);
+        panel.style.display = (i === n) ? 'block' : 'none';
+        panel.classList.remove('active-step');
       }
+      var activePanel = document.getElementById('stepPanel' + n);
+      void activePanel.offsetWidth; // restart the animation each time this step is (re-)entered
+      activePanel.classList.add('active-step');
       updateStepper(n);
       if (n === 2) renderStep2();
       if (n === 3) renderStep3();

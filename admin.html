@@ -174,6 +174,16 @@
     .mt-refresh-btn:active { transform: translateY(0) scale(.94); }
     .mt-refresh-btn.spinning { animation: mtSpin .7s linear; pointer-events: none; opacity: .7; }
     @keyframes mtSpin { to { transform: rotate(360deg); } }
+
+    /* Shared loading indicator — replaces plain "Loading…" text everywhere
+       it appeared, and doubles as the in-button spinner for async submits
+       (.btn-spinner variant, sized to sit inline with button text). */
+    .loading-row { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 28px 16px; color: var(--muted); font-size: 13px; }
+    .loading-ring { width: 20px; height: 20px; border: 2.5px solid var(--border); border-top-color: var(--rose); border-radius: 50%; animation: mtSpin .7s linear infinite; flex-shrink: 0; }
+    .loading-ring.sm { width: 14px; height: 14px; border-width: 2px; }
+    .btn-spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid rgba(255, 255, 255, .45); border-top-color: currentColor; border-radius: 50%; animation: mtSpin .7s linear infinite; vertical-align: -2px; margin-right: 7px; }
+    .btn-outline .btn-spinner { border-color: rgba(139, 61, 82, .3); border-top-color: currentColor; }
+
     .notif-bell:hover { color: var(--rose-dark); }
     .notif-badge {
       position: absolute; top: 2px; right: 2px; background: var(--rose-dark); color: white; font-size: 9px; font-weight: 600;
@@ -537,7 +547,7 @@
           </button>
           <div class="notif-dropdown" id="notifDropdown">
             <div class="notif-dropdown-header">Notifications</div>
-            <div class="notif-list" id="notifList"><p class="notif-empty">Loading…</p></div>
+            <div class="notif-list" id="notifList"><p class="notif-empty loading-row"><span class="loading-ring sm"></span> Loading…</p></div>
           </div>
         </div>
         <div class="user-chip">
@@ -608,7 +618,7 @@
               </tr>
             </thead>
             <tbody id="ordersTableBody">
-              <tr><td colspan="6" class="table-empty">Loading orders…</td></tr>
+              <tr><td colspan="6" class="table-empty"><span class="loading-row"><span class="loading-ring sm"></span> Loading orders…</span></td></tr>
             </tbody>
           </table>
         </div>
@@ -631,7 +641,7 @@
               <tr><th>Name</th><th>Mobile</th><th>Email</th><th>Total Orders</th><th>Last Order</th><th>Action</th></tr>
             </thead>
             <tbody id="customersTableBody">
-              <tr><td colspan="6" class="table-empty">Loading customers…</td></tr>
+              <tr><td colspan="6" class="table-empty"><span class="loading-row"><span class="loading-ring sm"></span> Loading customers…</span></td></tr>
             </tbody>
           </table>
         </div>
@@ -653,7 +663,7 @@
 
         <div id="manageClassesSubview">
           <div class="class-cards-grid" id="classCardsContainer">
-            <p class="detail-empty">Loading classes…</p>
+            <p class="detail-empty loading-row"><span class="loading-ring sm"></span> Loading classes…</p>
           </div>
         </div>
 
@@ -670,7 +680,7 @@
                 <tr><th>Name</th><th>Mobile</th><th>Level</th><th>Timing</th><th>Date</th><th>Status</th><th>Notes</th></tr>
               </thead>
               <tbody id="enrollmentsTableBody">
-                <tr><td colspan="7" class="table-empty">Loading enrollments…</td></tr>
+                <tr><td colspan="7" class="table-empty"><span class="loading-row"><span class="loading-ring sm"></span> Loading enrollments…</span></td></tr>
               </tbody>
             </table>
           </div>
@@ -766,13 +776,13 @@
           </select>
         </div>
         <div id="classSaveChangesRow" style="display:none;margin-bottom:10px">
-          <button type="button" class="btn-primary btn-sm" style="width:100%" onclick="saveClass()">
+          <button type="button" class="btn-primary btn-sm" style="width:100%" onclick="saveClass(null, this)">
             <i class="ti ti-check" aria-hidden="true"></i> Save Changes
           </button>
         </div>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button type="button" class="btn-outline btn-sm" onclick="saveClass('Draft')">Save as Draft</button>
-          <button type="button" class="btn-primary btn-sm" onclick="saveClass('Published')">Publish Now</button>
+          <button type="button" class="btn-outline btn-sm" onclick="saveClass('Draft', this)">Save as Draft</button>
+          <button type="button" class="btn-primary btn-sm" onclick="saveClass('Published', this)">Publish Now</button>
           <button type="button" class="btn-outline btn-sm" onclick="closeClassPanel()">Cancel</button>
         </div>
         <p class="form-status" id="classFormStatus" role="status" aria-live="polite"></p>
@@ -851,7 +861,7 @@
       { key: 'ready', label: 'Ready', statuses: ['Ready for Collection'] },
       { key: 'delivered', label: 'Delivered', statuses: ['Delivered'] }
     ];
-    var SERVICES = ['Saree Blouse', 'Salwar / Churidar Set', 'Gown', 'Kurti / Top', 'Kids Frock', 'Alterations'];
+    var SERVICES = ['Saree Blouse', 'Salwar / Churidar Set', 'Gown', 'Bridal Wear', 'Kurti / Top', 'Kids Frock', 'Alterations'];
 
     // Quick-add suggestions for the measurement builder — a starting point,
     // not a constraint. Shilpa can type any field name the builder doesn't list.
@@ -859,6 +869,7 @@
       'Saree Blouse': ['Bust', 'Waist', 'Shoulder Width', 'Sleeve Length', 'Back Length', 'Front Length', 'Neck Depth Front', 'Neck Depth Back'],
       'Salwar / Churidar Set': ['Bust', 'Waist', 'Hip', 'Shoulder Width', 'Sleeve Length', 'Kurta Length', 'Salwar Length', 'Inseam'],
       'Gown': ['Bust', 'Waist', 'Hip', 'Shoulder Width', 'Sleeve Length', 'Total Length', 'Back Length'],
+      'Bridal Wear': ['Bust', 'Waist', 'Hip', 'Shoulder Width', 'Sleeve Length', 'Blouse Length', 'Neck Depth Front', 'Neck Depth Back', 'Work Type'],
       'Kurti / Top': ['Bust', 'Waist', 'Hip', 'Shoulder Width', 'Sleeve Length', 'Kurti Length'],
       'Kids Frock': ['Chest', 'Waist', 'Hip', 'Shoulder Width', 'Sleeve Length', 'Dress Length', 'Age'],
       'Alterations': ['Description', 'Length to reduce', 'Width to adjust']
@@ -912,7 +923,7 @@
       var email = document.getElementById('adminEmail').value.trim();
       var password = document.getElementById('adminPassword').value;
 
-      btn.disabled = true;
+      setBtnLoading(btn, true, 'Logging in…');
       setStatus(status, '', '');
 
       callApi('loginAdmin', { email: email, password: password }).then(function (res) {
@@ -922,11 +933,11 @@
           showAdminApp();
         } else {
           setStatus(status, (res && res.error) || 'Login failed. Please try again.', 'error');
-          btn.disabled = false;
+          setBtnLoading(btn, false);
         }
       }).catch(function () {
         setStatus(status, "Couldn't reach the server. Please check your connection.", 'error');
-        btn.disabled = false;
+        setBtnLoading(btn, false);
       });
 
       return false;
@@ -943,6 +954,23 @@
     function setStatus(el, message, type) {
       el.textContent = message;
       el.className = 'form-status' + (type ? ' ' + type : '');
+    }
+
+    /**
+     * Swaps a submit button into a spinner+label state and back, instead of
+     * just disabling it with no visual feedback. btn.dataset.originalHtml
+     * caches the button's real markup so restoring it doesn't need every
+     * call site to remember its own label text.
+     */
+    function setBtnLoading(btn, loading, loadingText) {
+      if (loading) {
+        if (btn.dataset.originalHtml === undefined) btn.dataset.originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="btn-spinner"></span>' + (loadingText || 'Please wait…');
+      } else {
+        if (btn.dataset.originalHtml !== undefined) btn.innerHTML = btn.dataset.originalHtml;
+        btn.disabled = false;
+      }
     }
 
     function formatDate(value) {
@@ -1293,9 +1321,9 @@
           '</div>' +
           (order.Notes ? '<div class="detail-grid" style="margin-top:10px"><div class="detail-field full-width"><span class="detail-field-label">Special Instructions</span><span class="detail-field-value">' + esc(order.Notes) + '</span></div></div>' : '') +
         '</div>' +
-        '<details class="detail-collapse"><summary>Measurements</summary><div id="orderMeasurementsContent"><p class="detail-empty">Loading…</p></div></details>' +
-        '<div class="detail-block"><div class="detail-block-title"><i class="ti ti-timeline" aria-hidden="true"></i> Status Timeline</div><div id="orderTimelineContent"><p class="detail-empty">Loading…</p></div></div>' +
-        '<div id="orderActionBlock"><p class="detail-empty">Loading…</p></div>';
+        '<details class="detail-collapse"><summary>Measurements</summary><div id="orderMeasurementsContent"><p class="detail-empty loading-row"><span class="loading-ring sm"></span> Loading…</p></div></details>' +
+        '<div class="detail-block"><div class="detail-block-title"><i class="ti ti-timeline" aria-hidden="true"></i> Status Timeline</div><div id="orderTimelineContent"><p class="detail-empty loading-row"><span class="loading-ring sm"></span> Loading…</p></div></div>' +
+        '<div id="orderActionBlock"><p class="detail-empty loading-row"><span class="loading-ring sm"></span> Loading…</p></div>';
 
       document.getElementById('orderDetailBody').innerHTML = html;
 
@@ -1581,7 +1609,7 @@
         return;
       }
 
-      btn.disabled = true;
+      setBtnLoading(btn, true, 'Sending…');
       setStatus(status, '', '');
 
       // Opened synchronously so the user gesture carries through to the async response.
@@ -1617,13 +1645,13 @@
             } else {
               if (waTab) waTab.close();
               setStatus(status, "Couldn't reach the server. Please try again.", 'error');
-              btn.disabled = false;
+              setBtnLoading(btn, false);
             }
           })
           .catch(function () {
             if (waTab) waTab.close();
             setStatus(status, "Couldn't reach the server. Please try again.", 'error');
-            btn.disabled = false;
+            setBtnLoading(btn, false);
           });
       }
 
@@ -1637,7 +1665,7 @@
         } else {
           if (waTab) waTab.close();
           setStatus(status, (res && res.error) || 'Something went wrong.', 'error');
-          btn.disabled = false;
+          setBtnLoading(btn, false);
         }
       }).catch(recoverOrFail);
     }
@@ -1874,7 +1902,7 @@
       var status = document.getElementById('statusUpdateStatus');
       var newStatus = select.value;
 
-      btn.disabled = true;
+      setBtnLoading(btn, true, 'Updating…');
       setStatus(status, '', '');
 
       var waTab = openWhatsAppRedirectTab_();
@@ -1941,7 +1969,7 @@
         .catch(function (err) {
           if (waTab) waTab.close();
           setStatus(status, (err && err.message) || "Couldn't reach the server.", 'error');
-          btn.disabled = false;
+          setBtnLoading(btn, false);
         });
     }
 
@@ -1955,7 +1983,7 @@
       var serviceSelect = document.getElementById('wiService');
       serviceSelect.innerHTML = '<option value="">None yet</option>' + SERVICES.map(function (s) { return '<option value="' + esc(s) + '">' + esc(s) + '</option>'; }).join('');
       setStatus(document.getElementById('wiStatus'), '', '');
-      document.getElementById('wiSubmitBtn').disabled = false;
+      setBtnLoading(document.getElementById('wiSubmitBtn'), false);
       document.getElementById('walkInFormView').style.display = 'block';
       document.getElementById('walkInCredentialsView').style.display = 'none';
       document.getElementById('walkInModal').classList.add('open');
@@ -1976,7 +2004,7 @@
       var service = document.getElementById('wiService').value;
       var reason = document.getElementById('wiReason').value.trim();
 
-      btn.disabled = true;
+      setBtnLoading(btn, true, 'Creating…');
       setStatus(status, '', '');
 
       var waTab = openWhatsAppRedirectTab_();
@@ -2047,21 +2075,21 @@
                 });
               } else {
                 setStatus(status, 'This profile already exists. Use Reset Password from the Customers tab to issue it a new password.', 'error');
-                btn.disabled = false;
+                setBtnLoading(btn, false);
               }
             }).catch(function () {
               setStatus(status, 'This profile likely already exists, but the generated password couldn\'t be recovered. Check the Customers tab and use Reset Password to issue a new one.', 'error');
-              btn.disabled = false;
+              setBtnLoading(btn, false);
             });
           } else {
             if (waTab) waTab.close();
             setStatus(status, (res && res.error) || 'Something went wrong.', 'error');
-            btn.disabled = false;
+            setBtnLoading(btn, false);
           }
         }).catch(function () {
           if (waTab) waTab.close();
           setStatus(status, "Couldn't reach the server. Please try again.", 'error');
-          btn.disabled = false;
+          setBtnLoading(btn, false);
         });
       }
 
@@ -2073,7 +2101,7 @@
         } else {
           if (waTab) waTab.close();
           setStatus(status, (res && res.error) || 'Something went wrong.', 'error');
-          btn.disabled = false;
+          setBtnLoading(btn, false);
         }
       }).catch(recoverOrFail);
 
@@ -2413,7 +2441,7 @@
       }
 
       setStatus(document.getElementById('classFormStatus'), '', '');
-      document.querySelectorAll('#classForm button').forEach(function (b) { b.disabled = false; });
+      document.querySelectorAll('#classForm button').forEach(function (b) { setBtnLoading(b, false); });
       document.getElementById('classPanelBackdrop').classList.add('open');
       document.getElementById('classPanel').classList.add('open');
       updateClassPreview();
@@ -2504,7 +2532,7 @@
         '</div>';
     }
 
-    function saveClass(forceStatus) {
+    function saveClass(forceStatus, clickedBtn) {
       var title = document.getElementById('clsTitle').value.trim();
       var level = document.getElementById('clsLevel').value;
       var status = document.getElementById('classFormStatus');
@@ -2530,7 +2558,13 @@
       };
 
       setStatus(status, '', '');
-      document.querySelectorAll('#classForm button').forEach(function (b) { b.disabled = true; });
+      document.querySelectorAll('#classForm button').forEach(function (b) {
+        if (b === clickedBtn) {
+          setBtnLoading(b, true, payload.status === 'Published' ? 'Publishing…' : 'Saving…');
+        } else {
+          b.disabled = true;
+        }
+      });
 
       var action = activeClassId ? 'updateClass' : 'createClass';
       if (activeClassId) payload.classId = activeClassId;
@@ -2564,7 +2598,9 @@
         })
         .catch(function (err) {
           setStatus(status, (err && err.message) || "Couldn't reach the server.", 'error');
-          document.querySelectorAll('#classForm button').forEach(function (b) { b.disabled = false; });
+          document.querySelectorAll('#classForm button').forEach(function (b) {
+            if (b === clickedBtn) setBtnLoading(b, false); else b.disabled = false;
+          });
         });
     }
 

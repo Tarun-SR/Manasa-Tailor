@@ -61,6 +61,10 @@
     .btn-primary:hover:not(:disabled) { background: var(--rose); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(139, 61, 82, .25); }
     .btn-primary:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
     .btn-primary:disabled { opacity: .6; cursor: not-allowed; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .btn-spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid rgba(255, 255, 255, .45); border-top-color: currentColor; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px; margin-right: 7px; }
+    .loading-row { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 24px 16px; color: var(--muted); font-size: 12px; }
+    .loading-ring { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--rose); border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
 
     .btn-outline {
       background: transparent; color: var(--rose-dark); border: 1px solid var(--rose-dark); padding: 12px 28px;
@@ -175,7 +179,7 @@
         </button>
         <div class="notif-dropdown" id="notifDropdown">
           <div class="notif-dropdown-header">Notifications</div>
-          <div class="notif-list" id="notifList"><p class="notif-empty">Loading…</p></div>
+          <div class="notif-list" id="notifList"><p class="notif-empty loading-row"><span class="loading-ring"></span> Loading…</p></div>
         </div>
       </div>
       <a href="profile.html" class="user-chip">
@@ -302,6 +306,17 @@
       el.className = 'form-status' + (type ? ' ' + type : '');
     }
 
+    function setBtnLoading(btn, loading, loadingText) {
+      if (loading) {
+        if (btn.dataset.originalHtml === undefined) btn.dataset.originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="btn-spinner"></span>' + (loadingText || 'Please wait…');
+      } else {
+        if (btn.dataset.originalHtml !== undefined) btn.innerHTML = btn.dataset.originalHtml;
+        btn.disabled = false;
+      }
+    }
+
     function formatDate(value) {
       if (!value) return '';
       var date = new Date(value);
@@ -349,7 +364,7 @@
         return false;
       }
 
-      btn.disabled = true;
+      setBtnLoading(btn, true, 'Saving…');
       setStatus(status, '', '');
 
       callApi('updateUserProfile', { userId: CURRENT_USER.userId, name: name, mobile: mobile, city: city })
@@ -364,11 +379,11 @@
           } else {
             setStatus(status, (res && res.error) || 'Something went wrong. Please try again.', 'error');
           }
-          btn.disabled = false;
+          setBtnLoading(btn, false);
         })
         .catch(function () {
           setStatus(status, "Couldn't reach the server. Please check your connection and try again.", 'error');
-          btn.disabled = false;
+          setBtnLoading(btn, false);
         });
 
       return false;
@@ -393,7 +408,7 @@
         return false;
       }
 
-      btn.disabled = true;
+      setBtnLoading(btn, true, 'Updating…');
       setStatus(status, '', '');
 
       // changePassword can succeed server-side even when the response
@@ -410,10 +425,10 @@
           } else {
             setStatus(status, "Couldn't reach the server. Please try again.", 'error');
           }
-          btn.disabled = false;
+          setBtnLoading(btn, false);
         }).catch(function () {
           setStatus(status, "Couldn't reach the server. Please check your connection and try again.", 'error');
-          btn.disabled = false;
+          setBtnLoading(btn, false);
         });
       }
 
@@ -422,10 +437,10 @@
           if (res && res.success) {
             setStatus(status, '✅ Password updated successfully!', 'success');
             document.getElementById('passwordForm').reset();
-            btn.disabled = false;
+            setBtnLoading(btn, false);
           } else {
             setStatus(status, res && res.error === 'Current password is incorrect' ? '❌ Current password is incorrect' : ((res && res.error) || 'Something went wrong.'), 'error');
-            btn.disabled = false;
+            setBtnLoading(btn, false);
           }
         })
         .catch(recoverOrFail);

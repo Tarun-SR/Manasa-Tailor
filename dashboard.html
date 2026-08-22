@@ -92,6 +92,11 @@
     .btn-primary:hover:not(:disabled) { background: var(--rose); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(139, 61, 82, .25); }
     .btn-primary:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
     .btn-primary:disabled { opacity: .6; cursor: not-allowed; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .btn-spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid rgba(255, 255, 255, .45); border-top-color: currentColor; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px; margin-right: 7px; }
+    .loading-row { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 28px 16px; color: var(--muted); font-size: 13px; }
+    .loading-ring { width: 18px; height: 18px; border: 2.5px solid var(--border); border-top-color: var(--rose); border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
+    .loading-ring.sm { width: 14px; height: 14px; border-width: 2px; }
 
     .btn-outline {
       background: transparent;
@@ -216,6 +221,30 @@
     .dash-title { font-family: 'Cormorant Garamond', serif; font-size: 34px; font-weight: 300; color: var(--dark); margin-bottom: 6px; }
     .dash-title em { font-style: italic; color: var(--rose); }
     .dash-subtitle { font-size: 13px; color: var(--muted); }
+
+    /* New-class banner — the notification bell already announces this, but
+       that's easy to miss; a visible card on the page itself isn't. */
+    .class-banner {
+      display: flex; align-items: center; gap: 16px; background: var(--rose-light);
+      border: 1px solid var(--border); border-radius: 4px; padding: 18px 22px; margin-bottom: 24px;
+      animation: classBannerIn .5s var(--ease) both;
+    }
+    @keyframes classBannerIn { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
+    .class-banner-icon {
+      width: 44px; height: 44px; border-radius: 50%; background: white; color: var(--rose-dark);
+      display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;
+    }
+    .class-banner-text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 180px; }
+    .class-banner-text strong { font-size: 14px; color: var(--dark); }
+    .class-banner-text span { font-size: 12px; color: var(--muted); }
+    .class-banner-cta {
+      background: var(--rose-dark); color: white; padding: 10px 18px; border-radius: 2px;
+      font-size: 11px; letter-spacing: 1px; text-transform: uppercase; text-decoration: none;
+      display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; flex-shrink: 0;
+      transition: background .25s var(--ease), transform .25s var(--ease);
+    }
+    .class-banner-cta:hover { background: var(--rose); transform: translateY(-2px); }
+    @media (max-width: 560px) { .class-banner { flex-wrap: wrap; } }
 
     .summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 28px; }
     .summary-card { background: white; border: 1px solid var(--border); border-radius: 4px; padding: 22px 20px; display: flex; flex-direction: column; gap: 6px; transition: transform .3s var(--ease), box-shadow .3s var(--ease); }
@@ -375,7 +404,7 @@
         <div class="notif-dropdown" id="notifDropdown">
           <div class="notif-dropdown-header">Notifications</div>
           <div class="notif-list" id="notifList">
-            <p class="notif-empty">Loading…</p>
+            <p class="notif-empty loading-row"><span class="loading-ring sm"></span> Loading…</p>
           </div>
         </div>
       </div>
@@ -395,6 +424,15 @@
       <p class="dash-eyebrow">Your Account</p>
       <h1 class="dash-title">Welcome back, <em id="welcomeName">…</em>!</h1>
       <p class="dash-subtitle">Here's what's happening with your orders.</p>
+    </div>
+
+    <div class="class-banner" id="classBanner" style="display:none">
+      <div class="class-banner-icon"><i class="ti ti-school" aria-hidden="true"></i></div>
+      <div class="class-banner-text">
+        <strong>New tailoring classes are open!</strong>
+        <span id="classBannerSubtext">Small batches, all levels — Tumkur, Karnataka.</span>
+      </div>
+      <a href="classes.html" class="class-banner-cta">View Classes <i class="ti ti-arrow-right" aria-hidden="true"></i></a>
     </div>
 
     <div class="summary-grid">
@@ -422,7 +460,7 @@
     <section>
       <h2 class="section-title">My Orders</h2>
       <div id="ordersList" class="orders-list">
-        <p class="orders-loading">Loading your orders…</p>
+        <p class="orders-loading loading-row"><span class="loading-ring"></span> Loading your orders…</p>
       </div>
     </section>
   </main>
@@ -484,6 +522,17 @@
       return String(str === null || str === undefined ? '' : str).replace(/[&<>"']/g, function (c) {
         return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
       });
+    }
+
+    function setBtnLoading(btn, loading, loadingText) {
+      if (loading) {
+        if (btn.dataset.originalHtml === undefined) btn.dataset.originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="btn-spinner"></span>' + (loadingText || 'Please wait…');
+      } else {
+        if (btn.dataset.originalHtml !== undefined) btn.innerHTML = btn.dataset.originalHtml;
+        btn.disabled = false;
+      }
     }
 
     function firstName(fullName) {
@@ -670,8 +719,8 @@
       if (order.Status === 'Quotation Sent') {
         actionsHtml =
           '<div class="quotation-actions">' +
-            '<button type="button" class="btn-primary" onclick="handleQuotationDecision(\'' + order.OrderID + '\',\'' + quotation.QuotationID + '\',\'approve\')">Approve</button>' +
-            '<button type="button" class="btn-outline" onclick="handleQuotationDecision(\'' + order.OrderID + '\',\'' + quotation.QuotationID + '\',\'reject\')">Reject</button>' +
+            '<button type="button" class="btn-primary" onclick="handleQuotationDecision(\'' + order.OrderID + '\',\'' + quotation.QuotationID + '\',\'approve\',this)">Approve</button>' +
+            '<button type="button" class="btn-outline" onclick="handleQuotationDecision(\'' + order.OrderID + '\',\'' + quotation.QuotationID + '\',\'reject\',this)">Reject</button>' +
           '</div>';
       }
 
@@ -741,7 +790,7 @@
       icon.classList.toggle('rotated', !isOpen);
     }
 
-    function handleQuotationDecision(orderId, quotationId, decision) {
+    function handleQuotationDecision(orderId, quotationId, decision, btn) {
       if (decision === 'reject' && !confirm('Reject this quotation? We\'ll follow up with a revised one.')) return;
 
       // Only opened for 'approve' — the admin needs to know about an
@@ -749,6 +798,17 @@
       // Opened synchronously so the click carries the user gesture through
       // to the async response, same reasoning as booking.html's admin ping.
       var waTab = decision === 'approve' ? openWhatsAppRedirectTab_() : null;
+
+      // Success re-renders the whole orders list (replacing these buttons
+      // entirely), so only the failure paths need to restore them.
+      var actionsRow = btn ? btn.closest('.quotation-actions') : null;
+      var siblingButtons = actionsRow ? actionsRow.querySelectorAll('button') : [];
+      if (btn) setBtnLoading(btn, true, decision === 'approve' ? 'Approving…' : 'Rejecting…');
+      siblingButtons.forEach(function (b) { if (b !== btn) b.disabled = true; });
+      function resetButtons() {
+        if (btn) setBtnLoading(btn, false);
+        siblingButtons.forEach(function (b) { b.disabled = false; });
+      }
 
       function succeed() {
         if (waTab) {
@@ -780,10 +840,12 @@
           } else {
             if (waTab) waTab.close();
             alert("Couldn't reach the server. Please try again.");
+            resetButtons();
           }
         }).catch(function () {
           if (waTab) waTab.close();
           alert("Couldn't reach the server. Please check your connection and try again.");
+          resetButtons();
         });
       }
 
@@ -794,6 +856,7 @@
           } else {
             if (waTab) waTab.close();
             alert((res && res.error) || 'Something went wrong. Please try again.');
+            resetButtons();
           }
         })
         .catch(recoverOrFail);
@@ -915,10 +978,24 @@
 
     // ---------- Init ----------
 
+    function loadClassBanner() {
+      callApi('getPublishedClasses', {}).then(function (res) {
+        var classes = (res && res.success) ? res.data.classes : [];
+        if (!classes.length) return;
+        if (classes.length === 1) {
+          document.getElementById('classBannerSubtext').textContent = classes[0].Title + ' — small batches, all levels.';
+        }
+        document.getElementById('classBanner').style.display = 'flex';
+      }).catch(function () {
+        // Stays hidden on a failed fetch — same reasoning as index.html's teaser.
+      });
+    }
+
     if (CURRENT_USER && CURRENT_USER.userId) {
       document.getElementById('welcomeName').textContent = firstName(CURRENT_USER.name);
       document.getElementById('userNameChip').textContent = CURRENT_USER.name || '';
       loadDashboardData();
+      loadClassBanner();
     }
   </script>
 

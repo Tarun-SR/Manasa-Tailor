@@ -236,6 +236,10 @@
     .btn-primary:hover:not(:disabled) { background: var(--rose); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(139, 61, 82, .25); }
     .btn-primary:active:not(:disabled) { transform: translateY(0); box-shadow: none; }
     .btn-primary:disabled { opacity: .6; cursor: not-allowed; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .btn-spinner { display: inline-block; width: 13px; height: 13px; border: 2px solid rgba(255, 255, 255, .45); border-top-color: currentColor; border-radius: 50%; animation: spin .7s linear infinite; vertical-align: -2px; margin-right: 7px; }
+    .loading-row { display: flex; align-items: center; justify-content: center; gap: 10px; padding: 40px 16px; color: var(--muted); font-size: 13px; }
+    .loading-ring { width: 22px; height: 22px; border: 2.5px solid var(--border); border-top-color: var(--rose); border-radius: 50%; animation: spin .7s linear infinite; flex-shrink: 0; }
 
     /* ── Contact section ── */
     .classes-contact { text-align: center; padding: 60px 24px 70px; }
@@ -304,7 +308,7 @@
   </div>
 
   <main class="classes-wrap" id="classesContainer">
-    <p class="empty-state">Loading classes…</p>
+    <p class="empty-state loading-row"><span class="loading-ring"></span> Loading classes…</p>
   </main>
 
   <!-- Enrollment modal -->
@@ -405,6 +409,17 @@
     function setStatus(el, message, type) {
       el.textContent = message;
       el.className = 'form-status' + (type ? ' ' + type : '');
+    }
+
+    function setBtnLoading(btn, loading, loadingText) {
+      if (loading) {
+        if (btn.dataset.originalHtml === undefined) btn.dataset.originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="btn-spinner"></span>' + (loadingText || 'Please wait…');
+      } else {
+        if (btn.dataset.originalHtml !== undefined) btn.innerHTML = btn.dataset.originalHtml;
+        btn.disabled = false;
+      }
     }
 
     function handleBookNow() {
@@ -539,7 +554,7 @@
       document.getElementById('enrollMessage').value = '';
       var status = document.getElementById('enrollStatus');
       setStatus(status, '', '');
-      document.getElementById('enrollSubmitBtn').disabled = false;
+      setBtnLoading(document.getElementById('enrollSubmitBtn'), false);
       document.getElementById('enrollModal').classList.add('open');
     }
 
@@ -570,7 +585,7 @@
 
       var cls = allClasses.filter(function (c) { return c.ClassID === activeEnrollClassId; })[0];
 
-      btn.disabled = true;
+      setBtnLoading(btn, true, 'Submitting…');
       setStatus(status, '', '');
 
       // Opened synchronously so the click carries the user gesture through
@@ -606,12 +621,12 @@
         } else {
           if (waTab) waTab.close();
           setStatus(status, (res && res.error) || 'Something went wrong. Please try again.', 'error');
-          btn.disabled = false;
+          setBtnLoading(btn, false);
         }
       }).catch(function () {
         if (waTab) waTab.close();
         setStatus(status, "Couldn't reach the server. Please try again.", 'error');
-        btn.disabled = false;
+        setBtnLoading(btn, false);
       });
 
       return false;
