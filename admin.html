@@ -367,6 +367,80 @@
     .footer-mini { background: var(--dark); padding: 18px 32px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
     .footer-mini p { font-size: 11px; color: rgba(255,255,255,.4); }
 
+    /* ── Classes: manage-classes cards ── */
+    .class-cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+    .class-card {
+      background: white; border: 1px solid var(--border); border-radius: 4px; padding: 18px;
+      display: flex; flex-direction: column; gap: 10px;
+      transition: border-color .25s var(--ease), box-shadow .25s var(--ease);
+    }
+    .class-card:hover { border-color: var(--rose); box-shadow: 0 10px 22px rgba(44, 26, 32, .06); }
+    .class-card-title { font-family: 'Cormorant Garamond', serif; font-size: 19px; color: var(--dark); font-weight: 600; }
+    .class-card-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .class-card-level { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+    .class-card-seats { font-size: 12px; color: var(--muted); }
+    .class-card-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+
+    /* ── Classes: create/edit panel (wider than the order detail panel, form + live preview side by side) ── */
+    .detail-panel.wide { width: 960px; }
+    .detail-panel-body.split { flex-direction: row; flex-wrap: wrap; align-items: flex-start; }
+    .detail-panel-body.split > form { flex: 1 1 340px; }
+    .detail-panel-body.split > .class-preview-col { flex: 1 1 340px; position: sticky; top: 0; }
+    .checkbox-row { display: flex; gap: 16px; flex-wrap: wrap; }
+    .checkbox-row label { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--dark); font-weight: 400; text-transform: none; letter-spacing: 0; cursor: pointer; }
+    .field-note { font-size: 10.5px; color: var(--muted); margin-top: 4px; }
+
+    /* ── Classes: poster preview (mirrors classes.html's public poster card) ── */
+    .preview-label { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+    .poster-card { background: var(--dark); border-radius: 10px; overflow: hidden; box-shadow: 0 16px 36px rgba(44, 26, 32, .2); }
+    .poster-shimmer { height: 3px; width: 100%; overflow: hidden; position: relative; background: rgba(184, 146, 74, .15); }
+    .poster-shimmer::after {
+      content: ''; position: absolute; top: 0; left: -40%; height: 100%; width: 40%;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      animation: shimmerSweep 2.5s ease-in-out infinite;
+    }
+    @keyframes shimmerSweep { 0% { left: -40%; } 100% { left: 100%; } }
+    .poster-inner { padding: 24px 22px; display: flex; flex-direction: column; gap: 16px; }
+    .poster-top-row { display: flex; align-items: center; justify-content: space-between; }
+    .poster-badge {
+      display: inline-flex; align-items: center; gap: 6px; background: var(--gold); color: var(--dark);
+      padding: 5px 12px; border-radius: 999px; font-size: 10px; letter-spacing: 1px; text-transform: uppercase;
+      font-weight: 600; animation: badgePulse 2s ease-in-out infinite;
+    }
+    @keyframes badgePulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(184, 146, 74, .5); }
+      50% { box-shadow: 0 0 0 8px rgba(184, 146, 74, 0); }
+    }
+    .poster-scissors { color: var(--gold); font-size: 20px; animation: scissorsRock 1.8s ease-in-out infinite; transform-origin: center; }
+    @keyframes scissorsRock { 0%, 100% { transform: rotate(-12deg); } 50% { transform: rotate(12deg); } }
+    .poster-brand { font-family: 'Cormorant Garamond', serif; font-style: italic; color: var(--rose); font-size: 13px; margin-bottom: 2px; }
+    .poster-headline { font-family: 'Cormorant Garamond', serif; font-size: 24px; font-weight: 300; color: white; line-height: 1.2; }
+    .poster-subline { font-size: 11px; color: rgba(255, 255, 255, .55); margin-top: 3px; }
+    .poster-batch-name { font-size: 12px; color: var(--gold); font-weight: 500; margin-top: 8px; }
+    .level-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .level-card { background: rgba(255, 255, 255, .05); border: 1px solid rgba(255, 255, 255, .12); border-radius: 6px; padding: 10px 8px; }
+    .level-card.matched { border-color: var(--gold); background: rgba(184, 146, 74, .1); }
+    .level-card i { font-size: 17px; color: var(--gold); margin-bottom: 5px; display: block; }
+    .level-card h4 { font-family: 'Cormorant Garamond', serif; color: white; font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+    .level-card p { font-size: 9px; color: rgba(255, 255, 255, .55); line-height: 1.4; }
+    .poster-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+    .poster-tag { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; color: rgba(255, 255, 255, .7); background: rgba(255, 255, 255, .06); padding: 5px 10px; border-radius: 20px; }
+    .poster-tag i { color: var(--gold); font-size: 12px; }
+    .fees-note { background: rgba(184, 146, 74, .1); border: 1px solid rgba(184, 146, 74, .3); border-radius: 6px; padding: 10px 12px; font-size: 11px; color: rgba(255, 255, 255, .8); text-align: center; line-height: 1.5; }
+    .poster-ctas { display: flex; gap: 8px; flex-wrap: wrap; }
+    .poster-btn-primary, .poster-btn-outline {
+      font-family: 'Jost', sans-serif; font-size: 10.5px; letter-spacing: 1px; text-transform: uppercase;
+      padding: 10px 14px; border-radius: 3px; flex: 1 1 100px; text-align: center; text-decoration: none;
+      pointer-events: none; /* preview only — not a live control */
+    }
+    .poster-btn-primary { background: var(--rose-dark); color: white; border: none; }
+    .poster-btn-outline { background: transparent; color: white; border: 1px solid rgba(255, 255, 255, .3); }
+    .seats-row { display: flex; justify-content: space-between; font-size: 10px; color: rgba(255, 255, 255, .6); margin-bottom: 5px; }
+    .seats-row .seats-count { color: var(--gold); font-weight: 600; }
+    .seats-track { height: 5px; background: rgba(255, 255, 255, .1); border-radius: 999px; overflow: hidden; }
+    .seats-fill { height: 100%; background: linear-gradient(90deg, var(--gold-dark), var(--gold)); border-radius: 999px; transition: width .6s var(--ease); }
+    .urgency-text { color: var(--rose); font-size: 11px; text-align: center; font-weight: 500; }
+
     /* ── Responsive ── */
     @media (max-width: 900px) {
       .summary-grid { grid-template-columns: repeat(2, 1fr); }
@@ -448,6 +522,9 @@
       <button type="button" class="admin-tab" id="tabCustomersBtn" onclick="switchView('customers')">
         <i class="ti ti-users" aria-hidden="true"></i> Customers
       </button>
+      <button type="button" class="admin-tab" id="tabClassesBtn" onclick="switchView('classes')">
+        <i class="ti ti-school" aria-hidden="true"></i> Classes
+      </button>
     </div>
 
     <main class="admin-main">
@@ -525,6 +602,46 @@
         </div>
       </div>
 
+      <!-- CLASSES VIEW -->
+      <div id="classesView" class="view-panel" style="display:none">
+        <div class="page-header">
+          <h1 class="page-title">Tailoring <em>Classes</em></h1>
+          <button type="button" class="btn-primary" onclick="openClassPanel()">
+            <i class="ti ti-plus" aria-hidden="true"></i> Create New Class
+          </button>
+        </div>
+
+        <div class="filter-row">
+          <button type="button" class="filter-tab active" id="classSubTabManage" onclick="switchClassSubview('manage')">Manage Classes</button>
+          <button type="button" class="filter-tab" id="classSubTabEnrollments" onclick="switchClassSubview('enrollments')">Enrollments</button>
+        </div>
+
+        <div id="manageClassesSubview">
+          <div class="class-cards-grid" id="classCardsContainer">
+            <p class="detail-empty">Loading classes…</p>
+          </div>
+        </div>
+
+        <div id="enrollmentsSubview" style="display:none">
+          <div class="search-row">
+            <div class="input-icon">
+              <i class="ti ti-search" aria-hidden="true"></i>
+              <input type="text" id="enrollmentSearchInput" placeholder="Search by name or mobile" oninput="renderEnrollmentsTable()">
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr><th>Name</th><th>Mobile</th><th>Level</th><th>Timing</th><th>Date</th><th>Status</th><th>Notes</th></tr>
+              </thead>
+              <tbody id="enrollmentsTableBody">
+                <tr><td colspan="7" class="table-empty">Loading enrollments…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </main>
 
     <footer class="footer-mini">
@@ -541,6 +658,95 @@
       <button type="button" class="detail-panel-close" onclick="closeOrderDetail()" aria-label="Close">&times;</button>
     </div>
     <div class="detail-panel-body" id="orderDetailBody"></div>
+  </div>
+
+  <!-- Class create/edit panel -->
+  <div class="detail-backdrop" id="classPanelBackdrop" onclick="closeClassPanel()"></div>
+  <div class="detail-panel wide" id="classPanel">
+    <div class="detail-panel-header">
+      <h2 class="detail-panel-title" id="classPanelTitle">New Class</h2>
+      <button type="button" class="detail-panel-close" onclick="closeClassPanel()" aria-label="Close">&times;</button>
+    </div>
+    <div class="detail-panel-body split">
+      <form id="classForm" onsubmit="return false;">
+        <div class="auth-field">
+          <label for="clsTitle">Class Title*</label>
+          <input type="text" id="clsTitle" oninput="scheduleClassPreviewUpdate()" required>
+        </div>
+        <div class="auth-field">
+          <label for="clsLevel">Level*</label>
+          <select id="clsLevel" onchange="scheduleClassPreviewUpdate()" required>
+            <option value="">Select</option>
+            <option>Basic</option>
+            <option>Intermediate</option>
+            <option>Advanced</option>
+            <option>All Levels</option>
+          </select>
+        </div>
+        <div class="auth-field">
+          <label for="clsDescription">Description</label>
+          <textarea id="clsDescription" rows="3" oninput="scheduleClassPreviewUpdate()"></textarea>
+        </div>
+        <div class="auth-field">
+          <label for="clsDuration">Duration</label>
+          <input type="text" id="clsDuration" placeholder="e.g. 3 months" oninput="scheduleClassPreviewUpdate()">
+        </div>
+        <div class="auth-field">
+          <label>Timing Slots</label>
+          <div class="checkbox-row">
+            <label><input type="checkbox" class="clsTiming" value="Morning" onchange="scheduleClassPreviewUpdate()"> Morning</label>
+            <label><input type="checkbox" class="clsTiming" value="Evening" onchange="scheduleClassPreviewUpdate()"> Evening</label>
+            <label><input type="checkbox" class="clsTiming" value="Weekend" onchange="scheduleClassPreviewUpdate()"> Weekend</label>
+          </div>
+        </div>
+        <div class="auth-field">
+          <label for="clsStartDate">Start Date</label>
+          <input type="date" id="clsStartDate" oninput="scheduleClassPreviewUpdate()">
+        </div>
+        <div class="detail-grid">
+          <div class="auth-field">
+            <label for="clsTotalSeats">Total Seats</label>
+            <input type="number" id="clsTotalSeats" min="0" value="10" oninput="scheduleClassPreviewUpdate()">
+          </div>
+          <div class="auth-field">
+            <label for="clsSeatsTaken">Seats Taken</label>
+            <input type="number" id="clsSeatsTaken" min="0" value="0" oninput="scheduleClassPreviewUpdate()">
+          </div>
+        </div>
+        <div class="auth-field">
+          <label for="clsContactNote">Contact Note</label>
+          <input type="text" id="clsContactNote" value="Call to enquire about fees" oninput="scheduleClassPreviewUpdate()">
+        </div>
+        <div class="auth-field">
+          <label for="clsFees">Fees (₹)</label>
+          <input type="number" id="clsFees" min="0" oninput="scheduleClassPreviewUpdate()">
+          <p class="field-note">Internal only — never shown publicly. The poster always shows "Fees on enquiry".</p>
+        </div>
+        <div class="auth-field">
+          <label for="clsStatus">Status</label>
+          <select id="clsStatus" onchange="scheduleClassPreviewUpdate()">
+            <option>Draft</option>
+            <option>Published</option>
+            <option>Closed</option>
+          </select>
+        </div>
+        <div id="classSaveChangesRow" style="display:none;margin-bottom:10px">
+          <button type="button" class="btn-primary btn-sm" style="width:100%" onclick="saveClass()">
+            <i class="ti ti-check" aria-hidden="true"></i> Save Changes
+          </button>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button type="button" class="btn-outline btn-sm" onclick="saveClass('Draft')">Save as Draft</button>
+          <button type="button" class="btn-primary btn-sm" onclick="saveClass('Published')">Publish Now</button>
+          <button type="button" class="btn-outline btn-sm" onclick="closeClassPanel()">Cancel</button>
+        </div>
+        <p class="form-status" id="classFormStatus" role="status" aria-live="polite"></p>
+      </form>
+      <div class="class-preview-col">
+        <p class="preview-label"><i class="ti ti-eye" aria-hidden="true"></i> Live Preview</p>
+        <div id="classPreviewWrap"></div>
+      </div>
+    </div>
   </div>
 
   <!-- Walk-in profile modal -->
@@ -802,21 +1008,32 @@
 
     // ---------- Tabs ----------
 
+    var classesDataLoaded = false;
+
     function switchView(view) {
       currentView = view;
       document.getElementById('ordersView').style.display = view === 'orders' ? 'block' : 'none';
       document.getElementById('customersView').style.display = view === 'customers' ? 'block' : 'none';
+      document.getElementById('classesView').style.display = view === 'classes' ? 'block' : 'none';
       document.getElementById('tabOrdersBtn').classList.toggle('active', view === 'orders');
       document.getElementById('tabCustomersBtn').classList.toggle('active', view === 'customers');
+      document.getElementById('tabClassesBtn').classList.toggle('active', view === 'classes');
 
       // Restart the fade-in on whichever panel just became visible — a CSS
       // animation only plays once per class application, so without forcing
       // a reflow between removing and re-adding it, switching back to a
       // view you'd already visited would show no animation the second time.
-      var activeEl = document.getElementById(view === 'orders' ? 'ordersView' : 'customersView');
+      var idByView = { orders: 'ordersView', customers: 'customersView', classes: 'classesView' };
+      var activeEl = document.getElementById(idByView[view]);
       activeEl.classList.remove('view-panel');
       void activeEl.offsetWidth;
       activeEl.classList.add('view-panel');
+
+      if (view === 'classes' && !classesDataLoaded) {
+        classesDataLoaded = true;
+        loadClassesAdmin();
+        loadEnrollmentsAdmin();
+      }
     }
 
     // ---------- Summary cards ----------
@@ -1952,6 +2169,408 @@
         document.getElementById('notifBellBtn').setAttribute('aria-expanded', 'false');
       }
     });
+
+    // ============================================================
+    // ---------- Classes ----------
+    // ============================================================
+
+    var ENROLLMENT_STATUSES = ['New', 'Contacted', 'Confirmed', 'Enrolled', 'Completed', 'Not Interested'];
+    var allClasses = [];
+    var allEnrollments = [];
+    var activeClassId = null;
+    var classPreviewDebounceTimer = null;
+
+    function switchClassSubview(sub) {
+      document.getElementById('manageClassesSubview').style.display = sub === 'manage' ? 'block' : 'none';
+      document.getElementById('enrollmentsSubview').style.display = sub === 'enrollments' ? 'block' : 'none';
+      document.getElementById('classSubTabManage').classList.toggle('active', sub === 'manage');
+      document.getElementById('classSubTabEnrollments').classList.toggle('active', sub === 'enrollments');
+    }
+
+    // ---------- Manage Classes ----------
+
+    function loadClassesAdmin() {
+      callApi('getAllClasses', { adminId: CURRENT_ADMIN.adminId }).then(function (res) {
+        allClasses = (res && res.success) ? res.data.classes : [];
+        renderClassCards();
+      }).catch(function () {
+        document.getElementById('classCardsContainer').innerHTML = '<p class="detail-empty">Couldn\'t load classes. Please refresh.</p>';
+      });
+    }
+
+    function renderClassCards() {
+      var container = document.getElementById('classCardsContainer');
+      if (!allClasses.length) {
+        container.innerHTML = '<p class="detail-empty">No classes yet — create your first one.</p>';
+        return;
+      }
+      container.innerHTML = allClasses.map(classCardHtml).join('');
+    }
+
+    function classCardHtml(cls) {
+      var statusMap = { Draft: 'badge-muted', Published: 'badge-green', Closed: 'badge-yellow' };
+      var statusCls = statusMap[cls.Status] || 'badge-muted';
+      var seatsTaken = Number(cls.SeatsTaken) || 0;
+      var totalSeats = Number(cls.TotalSeats) || 0;
+
+      return '' +
+        '<div class="class-card">' +
+          '<div>' +
+            '<h3 class="class-card-title">' + esc(cls.Title) + '</h3>' +
+            '<div class="class-card-meta">' +
+              '<span class="badge ' + statusCls + '">' + esc(cls.Status) + '</span>' +
+              '<span class="class-card-level">' + esc(cls.Level) + '</span>' +
+            '</div>' +
+          '</div>' +
+          '<p class="class-card-seats">' + seatsTaken + ' of ' + totalSeats + ' seats taken</p>' +
+          '<div class="class-card-actions">' +
+            '<button type="button" class="btn-outline btn-sm" onclick="openClassPanel(\'' + cls.ClassID + '\')">Edit</button>' +
+            (cls.Status === 'Published'
+              ? '<button type="button" class="btn-outline btn-sm" onclick="toggleClassPublish(\'' + cls.ClassID + '\', \'Draft\')">Unpublish</button>'
+              : '<button type="button" class="btn-outline btn-sm" onclick="toggleClassPublish(\'' + cls.ClassID + '\', \'Published\')">Publish</button>') +
+            '<button type="button" class="btn-outline btn-sm" style="color:#b23b3b;border-color:#b23b3b" onclick="deleteClassPrompt(\'' + cls.ClassID + '\')">Delete</button>' +
+          '</div>' +
+        '</div>';
+    }
+
+    function toggleClassPublish(classId, newStatus) {
+      callApi('updateClass', { adminId: CURRENT_ADMIN.adminId, classId: classId, status: newStatus })
+        .then(function (res) {
+          if (res && res.success) {
+            loadClassesAdmin();
+          } else {
+            alert((res && res.error) || 'Could not update the class.');
+          }
+        })
+        .catch(function () {
+          alert("Couldn't reach the server. Please try again.");
+        });
+    }
+
+    function deleteClassPrompt(classId) {
+      var cls = allClasses.filter(function (c) { return c.ClassID === classId; })[0];
+      if (!confirm('Delete "' + (cls ? cls.Title : 'this class') + '"? This can\'t be undone.')) return;
+      callApi('deleteClass', { adminId: CURRENT_ADMIN.adminId, classId: classId })
+        .then(function (res) {
+          if (res && res.success) {
+            loadClassesAdmin();
+          } else {
+            alert((res && res.error) || 'Could not delete the class.');
+          }
+        })
+        .catch(function () {
+          alert("Couldn't reach the server. Please try again.");
+        });
+    }
+
+    // ---------- Create/edit class panel ----------
+
+    function formatDateForInput_(value) {
+      if (!value) return '';
+      var s = String(value);
+      if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+      var d = new Date(value);
+      return isNaN(d.getTime()) ? '' : d.toISOString().slice(0, 10);
+    }
+
+    function getSelectedTimingSlots() {
+      return Array.prototype.slice.call(document.querySelectorAll('.clsTiming:checked')).map(function (cb) { return cb.value; });
+    }
+
+    function setTimingSlotsChecked(slots) {
+      document.querySelectorAll('.clsTiming').forEach(function (cb) {
+        cb.checked = slots.indexOf(cb.value) !== -1;
+      });
+    }
+
+    function openClassPanel(classId) {
+      activeClassId = classId || null;
+      document.getElementById('classForm').reset();
+
+      if (activeClassId) {
+        var cls = allClasses.filter(function (c) { return c.ClassID === activeClassId; })[0];
+        if (!cls) return;
+        document.getElementById('classPanelTitle').textContent = 'Edit Class';
+        document.getElementById('clsTitle').value = cls.Title || '';
+        document.getElementById('clsLevel').value = cls.Level || '';
+        document.getElementById('clsDescription').value = cls.Description || '';
+        document.getElementById('clsDuration').value = cls.Duration || '';
+        setTimingSlotsChecked(String(cls.TimingSlots || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean));
+        document.getElementById('clsStartDate').value = formatDateForInput_(cls.StartDate);
+        document.getElementById('clsTotalSeats').value = Number(cls.TotalSeats) || 0;
+        document.getElementById('clsSeatsTaken').value = Number(cls.SeatsTaken) || 0;
+        document.getElementById('clsContactNote').value = cls.ContactNote || '';
+        document.getElementById('clsFees').value = Number(cls.Fees) || '';
+        document.getElementById('clsStatus').value = cls.Status || 'Draft';
+        document.getElementById('classSaveChangesRow').style.display = 'block';
+      } else {
+        document.getElementById('classPanelTitle').textContent = 'New Class';
+        document.getElementById('clsTotalSeats').value = 10;
+        document.getElementById('clsSeatsTaken').value = 0;
+        document.getElementById('clsContactNote').value = 'Call to enquire about fees';
+        document.getElementById('clsStatus').value = 'Draft';
+        document.getElementById('classSaveChangesRow').style.display = 'none';
+      }
+
+      setStatus(document.getElementById('classFormStatus'), '', '');
+      document.querySelectorAll('#classForm button').forEach(function (b) { b.disabled = false; });
+      document.getElementById('classPanelBackdrop').classList.add('open');
+      document.getElementById('classPanel').classList.add('open');
+      updateClassPreview();
+    }
+
+    function closeClassPanel() {
+      document.getElementById('classPanelBackdrop').classList.remove('open');
+      document.getElementById('classPanel').classList.remove('open');
+      activeClassId = null;
+    }
+
+    function scheduleClassPreviewUpdate() {
+      clearTimeout(classPreviewDebounceTimer);
+      classPreviewDebounceTimer = setTimeout(updateClassPreview, 150);
+    }
+
+    function updateClassPreview() {
+      var wrap = document.getElementById('classPreviewWrap');
+      if (!wrap) return;
+      var formData = {
+        Title: document.getElementById('clsTitle').value.trim() || 'Untitled Class',
+        Level: document.getElementById('clsLevel').value,
+        Duration: document.getElementById('clsDuration').value.trim(),
+        TimingSlots: getSelectedTimingSlots().join(','),
+        TotalSeats: document.getElementById('clsTotalSeats').value,
+        SeatsTaken: document.getElementById('clsSeatsTaken').value,
+        ContactNote: document.getElementById('clsContactNote').value.trim()
+      };
+      wrap.innerHTML = classPosterPreviewHtml(formData);
+      requestAnimationFrame(function () {
+        var fill = wrap.querySelector('.seats-fill');
+        if (fill) fill.style.width = fill.getAttribute('data-target') + '%';
+      });
+    }
+
+    /** A trimmed, non-interactive version of classes.html's public poster card — CTAs are static placeholders here. */
+    function classPosterPreviewHtml(cls) {
+      var seatsTaken = Number(cls.SeatsTaken) || 0;
+      var totalSeats = Number(cls.TotalSeats) || 0;
+      var pct = totalSeats > 0 ? Math.min(100, Math.round((seatsTaken / totalSeats) * 100)) : 0;
+      var timingSlots = String(cls.TimingSlots || '').split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+      var level = cls.Level || '';
+
+      function levelCard(name, icon, desc) {
+        var matched = level === name || level === 'All Levels';
+        return '<div class="level-card' + (matched ? ' matched' : '') + '"><i class="ti ' + icon + '" aria-hidden="true"></i><h4>' + name + '</h4><p>' + desc + '</p></div>';
+      }
+
+      return '' +
+        '<div class="poster-card">' +
+          '<div class="poster-shimmer"></div>' +
+          '<div class="poster-inner">' +
+            '<div class="poster-top-row">' +
+              '<span class="poster-badge">✨ Now Open</span>' +
+              '<i class="ti ti-scissors poster-scissors" aria-hidden="true"></i>' +
+            '</div>' +
+            '<div>' +
+              '<p class="poster-brand">Manasa Tailor ✂️</p>' +
+              '<h2 class="poster-headline">Learn the Art of Tailoring</h2>' +
+              '<p class="poster-subline">by Shilpa · Tumkur, Karnataka</p>' +
+              '<p class="poster-batch-name">' + esc(cls.Title) + '</p>' +
+            '</div>' +
+            '<div class="level-grid">' +
+              levelCard('Basic', 'ti-needle-thread', 'Hand stitching, fabric cutting, simple blouse') +
+              levelCard('Intermediate', 'ti-scissors', 'Blouse designs, churidar sets, kurtis') +
+              levelCard('Advanced', 'ti-crown', 'Gowns, bridal blouses, lining work') +
+            '</div>' +
+            '<div class="poster-tags">' +
+              (cls.Duration ? '<span class="poster-tag"><i class="ti ti-clock" aria-hidden="true"></i> ' + esc(cls.Duration) + '</span>' : '') +
+              (totalSeats ? '<span class="poster-tag"><i class="ti ti-users" aria-hidden="true"></i> ' + totalSeats + ' seats/batch</span>' : '') +
+              (timingSlots.length ? '<span class="poster-tag"><i class="ti ti-calendar" aria-hidden="true"></i> ' + esc(timingSlots.join(', ')) + '</span>' : '') +
+              '<span class="poster-tag"><i class="ti ti-map-pin" aria-hidden="true"></i> Tumkur, Karnataka</span>' +
+            '</div>' +
+            '<div class="fees-note">Fees on enquiry · ' + esc(cls.ContactNote || 'Call or WhatsApp Shilpa for details') + '</div>' +
+            '<div class="poster-ctas">' +
+              '<span class="poster-btn-primary">⭐ Enroll Now</span>' +
+              '<span class="poster-btn-outline">WhatsApp</span>' +
+              '<span class="poster-btn-outline">Call</span>' +
+            '</div>' +
+            (totalSeats ? (
+              '<div>' +
+                '<div class="seats-row"><span>Seats filling up</span><span class="seats-count">' + seatsTaken + ' of ' + totalSeats + ' taken</span></div>' +
+                '<div class="seats-track"><div class="seats-fill" data-target="' + pct + '" style="width:0%"></div></div>' +
+              '</div>'
+            ) : '') +
+            '<p class="urgency-text">Limited seats · Enquire before they fill up</p>' +
+          '</div>' +
+        '</div>';
+    }
+
+    function saveClass(forceStatus) {
+      var title = document.getElementById('clsTitle').value.trim();
+      var level = document.getElementById('clsLevel').value;
+      var status = document.getElementById('classFormStatus');
+
+      if (!title || !level) {
+        setStatus(status, 'Title and level are required.', 'error');
+        return;
+      }
+
+      var payload = {
+        adminId: CURRENT_ADMIN.adminId,
+        title: title,
+        level: level,
+        description: document.getElementById('clsDescription').value.trim(),
+        duration: document.getElementById('clsDuration').value.trim(),
+        timingSlots: getSelectedTimingSlots(),
+        startDate: document.getElementById('clsStartDate').value,
+        totalSeats: Number(document.getElementById('clsTotalSeats').value) || 0,
+        seatsTaken: Number(document.getElementById('clsSeatsTaken').value) || 0,
+        contactNote: document.getElementById('clsContactNote').value.trim(),
+        fees: Number(document.getElementById('clsFees').value) || 0,
+        status: forceStatus || document.getElementById('clsStatus').value
+      };
+
+      setStatus(status, '', '');
+      document.querySelectorAll('#classForm button').forEach(function (b) { b.disabled = true; });
+
+      var action = activeClassId ? 'updateClass' : 'createClass';
+      if (activeClassId) payload.classId = activeClassId;
+
+      // Same verify-before-treating-as-failed pattern as everywhere else in
+      // this app — createClass isn't in CALLAPI_SAFE_RETRY_ACTIONS (a blind
+      // retry there could create a duplicate class), so a dropped response
+      // needs this check instead of just trusting the error.
+      callApi(action, payload)
+        .then(function (res) {
+          if (!res || !res.success) throw new Error((res && res.error) || 'Could not save the class.');
+        })
+        .catch(function (err) {
+          return callApi('getAllClasses', { adminId: CURRENT_ADMIN.adminId }).then(function (checkRes) {
+            if (!checkRes || !checkRes.success) throw err;
+            if (activeClassId) {
+              var stillThere = checkRes.data.classes.filter(function (c) { return c.ClassID === activeClassId; })[0];
+              if (!stillThere || stillThere.Status !== payload.status) throw err;
+            } else {
+              var justCreated = checkRes.data.classes.some(function (c) {
+                return c.Title === title && (Date.now() - new Date(c.CreatedAt).getTime()) < 60000;
+              });
+              if (!justCreated) throw err;
+            }
+          });
+        })
+        .then(function () {
+          setStatus(status, '✅ Saved.', 'success');
+          loadClassesAdmin();
+          setTimeout(closeClassPanel, 700);
+        })
+        .catch(function (err) {
+          setStatus(status, (err && err.message) || "Couldn't reach the server.", 'error');
+          document.querySelectorAll('#classForm button').forEach(function (b) { b.disabled = false; });
+        });
+    }
+
+    // ---------- Enrollments ----------
+
+    function loadEnrollmentsAdmin() {
+      callApi('getAllEnrollments', { adminId: CURRENT_ADMIN.adminId }).then(function (res) {
+        allEnrollments = (res && res.success) ? res.data.enrollments : [];
+        renderEnrollmentsTable();
+      }).catch(function () {
+        document.getElementById('enrollmentsTableBody').innerHTML = '<tr><td colspan="7" class="table-empty">Couldn\'t load enrollments. Please refresh.</td></tr>';
+      });
+    }
+
+    function classTitleById_(classId) {
+      var cls = allClasses.filter(function (c) { return c.ClassID === classId; })[0];
+      return cls ? cls.Title : classId;
+    }
+
+    function renderEnrollmentsTable() {
+      var searchInput = document.getElementById('enrollmentSearchInput');
+      var query = (searchInput ? searchInput.value : '').trim().toLowerCase();
+      var filtered = allEnrollments.filter(function (e) {
+        if (!query) return true;
+        return (e.CustomerName || '').toLowerCase().indexOf(query) !== -1 || String(e.Mobile || '').indexOf(query) !== -1;
+      });
+      var tbody = document.getElementById('enrollmentsTableBody');
+      if (!filtered.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="table-empty">No enrollments found.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = filtered.map(enrollmentRowHtml).join('');
+    }
+
+    function enrollmentRowHtml(e) {
+      var statusOptions = ENROLLMENT_STATUSES.map(function (s) {
+        return '<option' + (s === e.Status ? ' selected' : '') + '>' + s + '</option>';
+      }).join('');
+
+      return '' +
+        '<tr class="enrollment-row" onclick="toggleEnrollmentDetail(\'' + e.EnrollmentID + '\')" style="cursor:pointer">' +
+          '<td>' + esc(e.CustomerName) + '</td>' +
+          '<td>' + esc(e.Mobile) + '</td>' +
+          '<td>' + esc(e.PreferredLevel) + '</td>' +
+          '<td>' + esc(e.PreferredTiming) + '</td>' +
+          '<td>' + formatDate(e.CreatedAt) + '</td>' +
+          '<td onclick="event.stopPropagation()">' +
+            '<select class="status-select" style="padding:6px 8px;font-size:11px" onchange="changeEnrollmentStatus(\'' + e.EnrollmentID + '\', this.value)">' + statusOptions + '</select>' +
+          '</td>' +
+          '<td>' + (e.AdminNotes ? '<i class="ti ti-notes" aria-hidden="true" title="Has notes"></i>' : '—') + '</td>' +
+        '</tr>' +
+        '<tr class="enrollment-detail-row" id="enrollDetail-' + e.EnrollmentID + '" style="display:none">' +
+          '<td colspan="7">' +
+            '<div class="detail-grid" style="margin:8px 0">' +
+              detailField('Email', e.Email) +
+              detailField('Class', classTitleById_(e.ClassID)) +
+            '</div>' +
+            (e.Message ? '<p style="font-size:12px;color:var(--muted);margin-bottom:10px"><strong>Message:</strong> ' + esc(e.Message) + '</p>' : '') +
+            '<div class="auth-field">' +
+              '<label>Admin Notes</label>' +
+              '<textarea id="enrollNotes-' + e.EnrollmentID + '" rows="2">' + esc(e.AdminNotes || '') + '</textarea>' +
+            '</div>' +
+            '<button type="button" class="btn-outline btn-sm" onclick="saveEnrollmentNotes(\'' + e.EnrollmentID + '\')">Save Notes</button>' +
+          '</td>' +
+        '</tr>';
+    }
+
+    function toggleEnrollmentDetail(enrollmentId) {
+      var row = document.getElementById('enrollDetail-' + enrollmentId);
+      if (row) row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+    }
+
+    function changeEnrollmentStatus(enrollmentId, newStatus) {
+      callApi('updateEnrollmentStatus', { adminId: CURRENT_ADMIN.adminId, enrollmentId: enrollmentId, status: newStatus })
+        .then(function (res) {
+          if (res && res.success) {
+            var e = allEnrollments.filter(function (x) { return x.EnrollmentID === enrollmentId; })[0];
+            if (e) e.Status = newStatus;
+          } else {
+            alert((res && res.error) || 'Could not update status.');
+            loadEnrollmentsAdmin();
+          }
+        })
+        .catch(function () {
+          alert("Couldn't reach the server. Please try again.");
+          loadEnrollmentsAdmin();
+        });
+    }
+
+    function saveEnrollmentNotes(enrollmentId) {
+      var e = allEnrollments.filter(function (x) { return x.EnrollmentID === enrollmentId; })[0];
+      if (!e) return;
+      var notes = document.getElementById('enrollNotes-' + enrollmentId).value.trim();
+      callApi('updateEnrollmentStatus', { adminId: CURRENT_ADMIN.adminId, enrollmentId: enrollmentId, status: e.Status, notes: notes })
+        .then(function (res) {
+          if (res && res.success) {
+            e.AdminNotes = notes;
+            renderEnrollmentsTable();
+          } else {
+            alert((res && res.error) || 'Could not save notes.');
+          }
+        })
+        .catch(function () {
+          alert("Couldn't reach the server. Please try again.");
+        });
+    }
   </script>
 
 </body>

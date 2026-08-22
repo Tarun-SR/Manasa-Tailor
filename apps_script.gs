@@ -97,7 +97,9 @@ var SHEET_NAMES = {
   QUOTATIONS: 'Quotations',
   MEASUREMENTS: 'Measurements',
   NOTIFICATIONS: 'Notifications',
-  ADMIN: 'Admin'
+  ADMIN: 'Admin',
+  CLASSES: 'Classes',
+  CLASS_ENROLLMENTS: 'ClassEnrollments'
 };
 
 var SHEET_HEADERS = {
@@ -106,8 +108,22 @@ var SHEET_HEADERS = {
   Quotations: ['QuotationID', 'OrderID', 'UserID', 'StitchingCost', 'FabricCost', 'AdditionalCost', 'TotalAmount', 'DeliveryTimeline', 'AdminNotes', 'Status', 'CreatedAt', 'UpdatedAt'],
   Measurements: ['MeasurementID', 'UserID', 'Garment', 'MeasurementsJSON', 'CreatedAt', 'UpdatedAt'],
   Notifications: ['NotificationID', 'UserID', 'Message', 'Type', 'IsRead', 'CreatedAt', 'OrderID'],
-  Admin: ['AdminID', 'Name', 'Phone', 'Email', 'PasswordHash', 'Salt', 'CreatedAt']
+  Admin: ['AdminID', 'Name', 'Phone', 'Email', 'PasswordHash', 'Salt', 'CreatedAt'],
+  Classes: ['ClassID', 'Title', 'Level', 'Description', 'Duration', 'TimingSlots', 'StartDate', 'TotalSeats', 'SeatsTaken', 'ContactNote', 'Fees', 'Status', 'CreatedAt', 'UpdatedAt'],
+  ClassEnrollments: ['EnrollmentID', 'ClassID', 'UserID', 'CustomerName', 'Mobile', 'Email', 'PreferredLevel', 'PreferredTiming', 'Message', 'Status', 'AdminNotes', 'CreatedAt']
 };
+
+// Class lifecycle (admin-set on the Classes tab): Draft is being edited and
+// never shown publicly; Published is what classes.html and index.html's
+// teaser both fetch via getPublishedClasses; Closed stops taking new
+// enrollments but the class record (and its enrollment history) stays.
+var CLASS_STATUSES = ['Draft', 'Published', 'Closed'];
+
+// Enrollment lifecycle (the "Enrollments" sub-tab in admin.html) — an
+// enrollment is just an expression of interest, not an automatic seat
+// booking, so this is a manual follow-up pipeline rather than something
+// that writes back to Classes.SeatsTaken on its own.
+var ENROLLMENT_STATUSES = ['New', 'Contacted', 'Confirmed', 'Enrolled', 'Completed', 'Not Interested'];
 
 // Admin-driven status transitions (the "Status Update" dropdown in admin.html).
 // Quotation Requested -> Quotation Sent happens only via saveQuotation, and
@@ -151,7 +167,15 @@ var ACTIONS = {
   getOrderTimeline: getOrderTimeline,
   updateUserProfile: updateUserProfile,
   changePassword: changePassword,
-  resetUserPassword: resetUserPassword
+  resetUserPassword: resetUserPassword,
+  createClass: createClass,
+  updateClass: updateClass,
+  getPublishedClasses: getPublishedClasses,
+  getAllClasses: getAllClasses,
+  createEnrollment: createEnrollment,
+  getAllEnrollments: getAllEnrollments,
+  updateEnrollmentStatus: updateEnrollmentStatus,
+  deleteClass: deleteClass
 };
 
 /** One-time setup: creates every tab from SHEET_HEADERS if it doesn't already exist. */
@@ -791,6 +815,250 @@ function markNotificationRead(data) {
   });
 
   return ok_({ notificationId: notificationId });
+}
+
+// ---------- Classes ----------
+
+/**
+ * TimingSlots (an array like ['Morning','Weekend'] from the admin panel's
+ * checkboxes) arrives the same way every other array/object param does over
+ * this app's GET transport — base64-encoded JSON, see parseMaybeJson_'s own
+ * comment for why raw JSON in a query string isn't safe on this deployment.
+ * Stored in the sheet as a plain comma-joined string rather than another
+ * JSON blob column, since it's just a handful of fixed values and a human
+ * glancing at the Classes tab shouldn't have to mentally parse JSON to read
+ * it.
+ */
+function formatTimingSlots_(value) {
+  var arr = parseMaybeJson_(value);
+  if (arr && Array.isArray(arr)) return arr.join(',');
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function createClass(data) {
+  var adminErr = requireAdmin_(data.adminId);
+  if (adminErr) return adminErr;
+
+  var title = (data.title || '').trim();
+  var level = (data.level || '').trim();
+  if (!title || !level) {
+    return fail_('title and level are required');
+  }
+
+  var status = (data.status || 'Draft').trim();
+  if (CLASS_STATUSES.indexOf(status) === -1) {
+    return fail_('Invalid status. Must be one of: ' + CLASS_STATUSES.join(', '));
+  }
+
+  var now = new Date();
+  var record = {
+    ClassID: genId_('CLS'),
+    Title: title,
+    Level: level,
+    Description: (data.description || '').trim(),
+    Duration: (data.duration || '').trim(),
+    TimingSlots: formatTimingSlots_(data.timingSlots),
+    StartDate: data.startDate || '',
+    TotalSeats: Number(data.totalSeats) || 0,
+    SeatsTaken: Number(data.seatsTaken) || 0,
+    ContactNote: (data.contactNote || 'Call to enquire about fees').trim(),
+    Fees: Number(data.fees) || 0,
+    Status: status,
+    CreatedAt: now,
+    UpdatedAt: now
+  };
+
+  withLock_(function () {
+    appendRow_(getSheet_(SHEET_NAMES.CLASSES), SHEET_HEADERS.Classes, record);
+  });
+
+  return ok_({ classId: record.ClassID });
+}
+
+/**
+ * Partial update, deliberately — admin.html's class cards have quick
+ * publish/unpublish/seats-taken actions that shouldn't have to resend every
+ * field just to flip one, and a naive full-overwrite would blank out
+ * whatever a quick action's payload happened to omit.
+ */
+function updateClass(data) {
+  var adminErr = requireAdmin_(data.adminId);
+  if (adminErr) return adminErr;
+
+  var classId = (data.classId || '').trim();
+  if (!classId) {
+    return fail_('classId is required');
+  }
+  var found = findById_(SHEET_NAMES.CLASSES, 'ClassID', classId);
+  if (!found) {
+    return fail_('Class not found');
+  }
+
+  if (data.status !== undefined && CLASS_STATUSES.indexOf((data.status || '').trim()) === -1) {
+    return fail_('Invalid status. Must be one of: ' + CLASS_STATUSES.join(', '));
+  }
+
+  var fieldSetters = {
+    title: function (v) { return { Title: (v || '').trim() }; },
+    level: function (v) { return { Level: (v || '').trim() }; },
+    description: function (v) { return { Description: (v || '').trim() }; },
+    duration: function (v) { return { Duration: (v || '').trim() }; },
+    timingSlots: function (v) { return { TimingSlots: formatTimingSlots_(v) }; },
+    startDate: function (v) { return { StartDate: v || '' }; },
+    totalSeats: function (v) { return { TotalSeats: Number(v) || 0 }; },
+    seatsTaken: function (v) { return { SeatsTaken: Number(v) || 0 }; },
+    contactNote: function (v) { return { ContactNote: (v || '').trim() }; },
+    fees: function (v) { return { Fees: Number(v) || 0 }; },
+    status: function (v) { return { Status: (v || '').trim() }; }
+  };
+
+  var updates = {};
+  Object.keys(fieldSetters).forEach(function (key) {
+    if (data[key] === undefined || data[key] === null) return;
+    var partial = fieldSetters[key](data[key]);
+    Object.keys(partial).forEach(function (col) { updates[col] = partial[col]; });
+  });
+  updates.UpdatedAt = new Date();
+
+  withLock_(function () {
+    var sheet = getSheet_(SHEET_NAMES.CLASSES);
+    var headers = SHEET_HEADERS.Classes;
+    Object.keys(updates).forEach(function (col) {
+      sheet.getRange(found.rowIndex, headers.indexOf(col) + 1).setValue(updates[col]);
+    });
+  });
+
+  return ok_({ classId: classId });
+}
+
+/** Public — this is what classes.html and index.html's teaser both fetch, logged in or not. */
+function getPublishedClasses(data) {
+  var classes = sheetToObjects_(getSheet_(SHEET_NAMES.CLASSES))
+    .filter(function (row) { return row.Status === 'Published'; })
+    .sort(byCreatedAtDesc_);
+  return ok_({ classes: classes });
+}
+
+function getAllClasses(data) {
+  var adminErr = requireAdmin_(data.adminId);
+  if (adminErr) return adminErr;
+
+  var classes = sheetToObjects_(getSheet_(SHEET_NAMES.CLASSES)).sort(byCreatedAtDesc_);
+  return ok_({ classes: classes });
+}
+
+// ---------- Class enrollments ----------
+
+function createEnrollment(data) {
+  var classId = (data.classId || '').trim();
+  var userId = (data.userId || '').trim();
+  var customerName = (data.customerName || '').trim();
+  var mobile = (data.mobile || '').trim();
+
+  if (!classId || !userId || !customerName || !mobile) {
+    return fail_('classId, userId, customerName and mobile are required');
+  }
+  if (!findById_(SHEET_NAMES.CLASSES, 'ClassID', classId)) {
+    return fail_('Class not found');
+  }
+  if (!findById_(SHEET_NAMES.USERS, 'UserID', userId)) {
+    return fail_('User not found');
+  }
+
+  var record = {
+    EnrollmentID: genId_('ENR'),
+    ClassID: classId,
+    UserID: userId,
+    CustomerName: customerName,
+    Mobile: mobile,
+    Email: (data.email || '').trim(),
+    PreferredLevel: (data.preferredLevel || '').trim(),
+    PreferredTiming: (data.preferredTiming || '').trim(),
+    Message: (data.message || '').trim(),
+    Status: 'New',
+    AdminNotes: '',
+    CreatedAt: new Date()
+  };
+
+  withLock_(function () {
+    appendRow_(getSheet_(SHEET_NAMES.CLASS_ENROLLMENTS), SHEET_HEADERS.ClassEnrollments, record);
+  });
+
+  notifyAdmin_('New Class Enrollment', customerName + ' is interested in a tailoring class.', '');
+
+  return ok_({ enrollmentId: record.EnrollmentID });
+}
+
+function getAllEnrollments(data) {
+  var adminErr = requireAdmin_(data.adminId);
+  if (adminErr) return adminErr;
+
+  var enrollments = sheetToObjects_(getSheet_(SHEET_NAMES.CLASS_ENROLLMENTS)).sort(byCreatedAtDesc_);
+  return ok_({ enrollments: enrollments });
+}
+
+function updateEnrollmentStatus(data) {
+  var adminErr = requireAdmin_(data.adminId);
+  if (adminErr) return adminErr;
+
+  var enrollmentId = (data.enrollmentId || '').trim();
+  var status = (data.status || '').trim();
+  if (!enrollmentId || !status) {
+    return fail_('enrollmentId and status are required');
+  }
+  if (ENROLLMENT_STATUSES.indexOf(status) === -1) {
+    return fail_('Invalid status. Must be one of: ' + ENROLLMENT_STATUSES.join(', '));
+  }
+  var found = findById_(SHEET_NAMES.CLASS_ENROLLMENTS, 'EnrollmentID', enrollmentId);
+  if (!found) {
+    return fail_('Enrollment not found');
+  }
+
+  withLock_(function () {
+    var sheet = getSheet_(SHEET_NAMES.CLASS_ENROLLMENTS);
+    var headers = SHEET_HEADERS.ClassEnrollments;
+    sheet.getRange(found.rowIndex, headers.indexOf('Status') + 1).setValue(status);
+    if (data.notes !== undefined && data.notes !== null) {
+      sheet.getRange(found.rowIndex, headers.indexOf('AdminNotes') + 1).setValue((data.notes || '').trim());
+    }
+  });
+
+  return ok_({ enrollmentId: enrollmentId, status: status });
+}
+
+/**
+ * Not in the original 7-function spec for this feature, but admin.html's
+ * class cards need a real "Delete" action (Draft classes especially are
+ * scratch entries an admin should be able to fully remove, not just hide).
+ * Matches this app's existing bias against silent data loss elsewhere
+ * (Orders get Cancelled rather than deleted, Users are never deleted) by
+ * refusing to delete a class that already has enrollment history — that's
+ * what Closed is for instead.
+ */
+function deleteClass(data) {
+  var adminErr = requireAdmin_(data.adminId);
+  if (adminErr) return adminErr;
+
+  var classId = (data.classId || '').trim();
+  if (!classId) {
+    return fail_('classId is required');
+  }
+  var found = findById_(SHEET_NAMES.CLASSES, 'ClassID', classId);
+  if (!found) {
+    return fail_('Class not found');
+  }
+
+  var hasEnrollments = sheetToObjects_(getSheet_(SHEET_NAMES.CLASS_ENROLLMENTS))
+    .some(function (row) { return row.ClassID === classId; });
+  if (hasEnrollments) {
+    return fail_('This class has enrollments and can\'t be deleted — set it to Closed instead.');
+  }
+
+  withLock_(function () {
+    getSheet_(SHEET_NAMES.CLASSES).deleteRow(found.rowIndex);
+  });
+
+  return ok_({ classId: classId });
 }
 
 // ---------- Shared record creation ----------

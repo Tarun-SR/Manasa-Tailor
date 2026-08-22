@@ -714,6 +714,25 @@
     background: var(--cream)
   }
 
+  /* ── Classes teaser — only shown when getPublishedClasses() has results ── */
+  .classes-teaser-bg { background: var(--dark); }
+  .classes-teaser-bg .section-tag { color: var(--gold); }
+  .classes-teaser-bg .section-title { color: white; }
+  .classes-teaser-bg .section-desc { color: rgba(255, 255, 255, .6); margin-left: auto; margin-right: auto; }
+  .teaser-scissors {
+    font-size: 30px; color: var(--gold); display: inline-block; margin-bottom: 14px;
+    animation: teaserScissorsRock 1.8s ease-in-out infinite; transform-origin: center;
+  }
+  @keyframes teaserScissorsRock { 0%, 100% { transform: rotate(-12deg); } 50% { transform: rotate(12deg); } }
+  .teaser-cta {
+    margin-top: 20px; display: inline-flex; align-items: center; gap: 8px;
+    background: var(--rose-dark); color: white; border: none; padding: 14px 30px;
+    font-family: 'Jost', sans-serif; font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;
+    border-radius: 2px; text-decoration: none; cursor: pointer;
+    transition: background .25s var(--ease), transform .25s var(--ease), box-shadow .25s var(--ease);
+  }
+  .teaser-cta:hover { background: var(--rose); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(139, 61, 82, .35); }
+
   .faq-bg {
     background: white
   }
@@ -1445,6 +1464,7 @@
     <a href="#services" onclick="closeNav()">Services</a>
     <a href="#gallery" onclick="closeNav()">Gallery</a>
     <a href="#pricing" onclick="closeNav()">Pricing</a>
+    <a href="classes.html">Classes</a>
     <a href="#contact" onclick="closeNav()">Contact</a>
   </div>
   <button class="nav-cta" onclick="handleBookNow()">Book Now</button>
@@ -1703,6 +1723,17 @@
       <i class="ti ti-brand-google-drive" aria-hidden="true"></i>
       View Full Portfolio
     </a>
+  </div>
+</section>
+
+<!-- CLASSES TEASER — hidden by default, shown only if getPublishedClasses() returns at least one class -->
+<section class="section classes-teaser-bg" id="classesTeaser" style="display:none">
+  <div class="center">
+    <i class="ti ti-scissors teaser-scissors" aria-hidden="true"></i>
+    <div class="section-tag">Beyond Stitching</div>
+    <h2 class="section-title">We Also Teach <em>Tailoring</em></h2>
+    <p class="section-desc">Small batches · All levels · Tumkur, Karnataka</p>
+    <a href="classes.html" class="teaser-cta">View Classes <i class="ti ti-arrow-right" aria-hidden="true"></i></a>
   </div>
 </section>
 
@@ -2022,7 +2053,7 @@
   }
 
   // Scroll entrance animation
-  var fadeEls = document.querySelectorAll('.svc-card, .step, .gallery-item, .price-card, .about-cert, .hero-badge, .stat, .contact-item');
+  var fadeEls = document.querySelectorAll('.svc-card, .step, .gallery-item, .price-card, .about-cert, .hero-badge, .stat, .contact-item, .classes-teaser-bg .center');
   fadeEls.forEach(function(el) { el.classList.add('fade-up'); });
 
   var observer = new IntersectionObserver(function(entries) {
@@ -2037,6 +2068,17 @@
   }, { threshold: 0.12 });
 
   fadeEls.forEach(function(el) { observer.observe(el); });
+
+  // Classes teaser only shows up if there's actually a published batch to
+  // send people to — an empty "We Also Teach" section linking to a page
+  // with nothing on it would be worse than not mentioning classes at all.
+  callApi('getPublishedClasses', {}).then(function (res) {
+    if (res && res.success && res.data.classes && res.data.classes.length) {
+      document.getElementById('classesTeaser').style.display = 'block';
+    }
+  }).catch(function () {
+    // Silently stay hidden — a failed fetch shouldn't surface as a visible error on the homepage.
+  });
 </script>
 
 <!-- 3D HERO ACCENT: subtle floating thread particles behind the hero image, skipped on mobile / reduced-motion -->

@@ -64,7 +64,17 @@ var CALLAPI_SAFE_RETRY_ACTIONS = [
   // call had only the caller's own verify-by-read fallback to fall back
   // on, and if that read also hiccupped on this transport, the admin saw
   // a failure for a write that had, in fact, gone through.
-  'updateOrderStatus', 'saveMeasurements'
+  'updateOrderStatus', 'saveMeasurements',
+  // Reads, same as the block above.
+  'getPublishedClasses', 'getAllClasses', 'getAllEnrollments',
+  // updateClass and updateEnrollmentStatus both overwrite specific cells on
+  // an existing row (see updateClass / updateEnrollmentStatus in
+  // apps_script.gs) rather than appending — same idempotent-write reasoning
+  // as updateOrderStatus above. createClass and createEnrollment are NOT
+  // included here on purpose: those append new rows, so a blind retry could
+  // create a duplicate class or a duplicate enrollment instead of just
+  // re-confirming the same one.
+  'updateClass', 'updateEnrollmentStatus'
 ];
 
 // Confirmed live: a plain JSON.stringify'd object (raw braces/quotes/colons/
