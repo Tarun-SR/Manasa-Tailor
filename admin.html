@@ -1649,6 +1649,12 @@
             order.AdvancePaidAt = new Date().toISOString();
             renderAdvancePaymentBlock(order);
           }
+          // The Update Status block (if a Payment Done target is already
+          // selected there) shows a receivable amount computed from the
+          // advance — refresh it too so it doesn't keep showing a stale
+          // figure from before this advance was recorded.
+          var statusSelect = document.getElementById('statusSelect');
+          if (statusSelect && statusSelect.value === 'Payment Done') onStatusSelectChange();
           loadAdminData(); // background refresh — doesn't gate the UI above
         })
         .catch(function (err) {
@@ -1843,9 +1849,10 @@
             '<div class="measure-chips" id="quickAddChips"></div>' +
           '</div>' +
           '<div id="finalAmountWrap" style="display:none;margin-top:-4px">' +
-            '<label for="finalAmountInput" class="measure-form-label"><i class="ti ti-cash-banknote" aria-hidden="true"></i> Final Amount Received (₹)</label>' +
+            '<div class="detail-grid" id="finalAmountSummary"></div>' +
+            '<label for="finalAmountInput" class="measure-form-label" style="margin-top:10px"><i class="ti ti-cash-banknote" aria-hidden="true"></i> Amount Actually Received (₹)</label>' +
             '<input type="number" min="0" id="finalAmountInput" oninput="updateStatusBtnState()" style="width:100%">' +
-            '<p class="detail-empty" id="finalAmountHint" style="margin-top:4px"></p>' +
+            '<p class="form-status" id="finalAmountMatchStatus" role="status" aria-live="polite"></p>' +
           '</div>' +
           '<div id="photoUploadWrap" style="display:none">' +
             '<div class="photo-upload-zone">' +
@@ -1873,21 +1880,21 @@
 
       if (needsFinalAmount) {
         var amountInput = document.getElementById('finalAmountInput');
-        var hint = document.getElementById('finalAmountHint');
+        var summaryEl = document.getElementById('finalAmountSummary');
         var summary = quotationPriceSummary_();
         if (summary) {
           var total = summary.finalTotal !== null ? summary.finalTotal : summary.originalTotal;
           var advance = Number((allOrders.filter(function (o) { return o.OrderID === activeOrderId; })[0] || {}).AdvanceAmount) || 0;
           var balance = Math.max(0, total - advance);
+          var rows = summary.wasNegotiated
+            ? detailField('Original Quote', formatMoney(summary.originalTotal)) + detailField('Final Agreed Price', formatMoney(summary.finalTotal))
+            : detailField('Quoted Price', formatMoney(total));
+          if (advance) rows += detailField('Advance Recorded', formatMoney(advance));
+          rows += detailField('Receivable Now', formatMoney(balance));
+          summaryEl.innerHTML = rows;
           if (!amountInput.value) amountInput.value = balance || '';
-          var lines = summary.wasNegotiated
-            ? ['Original quote: ' + formatMoney(summary.originalTotal), 'Final agreed price: ' + formatMoney(summary.finalTotal)]
-            : ['Quoted price: ' + formatMoney(total)];
-          if (advance) lines.push('Advance already recorded: ' + formatMoney(advance));
-          lines.push('Balance due: ' + formatMoney(balance));
-          hint.innerHTML = lines.join('<br>');
         } else {
-          hint.textContent = '';
+          summaryEl.innerHTML = '';
         }
       }
 
@@ -1936,11 +1943,44 @@
         return;
       }
       if (select.value === 'Payment Done') {
-        var finalAmount = Number(document.getElementById('finalAmountInput').value);
-        btn.disabled = !finalAmount || finalAmount <= 0;
+        btn.disabled = !checkFinalAmountMatch_();
         return;
       }
       btn.disabled = false;
+    }
+
+    // The invoice should only ever be generated once the books actually
+    // balance — advance already recorded + what Shilpa says she just
+    // received has to add up to the agreed price, not just be "some
+    // positive number". If it doesn't match, the fix is to correct the
+    // Advance Payment block above rather than let a mismatched invoice
+    // go out. A small epsilon (not exact equality) guards against
+    // meaningless float rounding on the subtraction above.
+    function checkFinalAmountMatch_() {
+      var el = document.getElementById('finalAmountMatchStatus');
+      var amountInput = document.getElementById('finalAmountInput');
+      if (!el || !amountInput) return false;
+
+      var summary = quotationPriceSummary_();
+      if (!summary) { setStatus(el, '', ''); return false; }
+
+      var order = allOrders.filter(function (o) { return o.OrderID === activeOrderId; })[0] || {};
+      var advance = Number(order.AdvanceAmount) || 0;
+      var total = summary.finalTotal !== null ? summary.finalTotal : summary.originalTotal;
+      var expected = Math.max(0, total - advance);
+      var entered = Number(amountInput.value) || 0;
+
+      if (!amountInput.value) {
+        setStatus(el, '', '');
+        return false;
+      }
+      var matches = entered > 0 && Math.abs(entered - expected) < 0.5;
+      if (matches) {
+        setStatus(el, 'Matches the receivable amount — ready to mark Payment Done.', 'success');
+      } else {
+        setStatus(el, 'Doesn\'t match — receivable amount is ' + formatMoney(expected) + '. Fix the Advance Payment above first if that\'s wrong.', 'error');
+      }
+      return matches;
     }
 
     // ---------- Measurement builder ----------
