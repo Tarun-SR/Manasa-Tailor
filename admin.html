@@ -893,6 +893,7 @@
     var pendingMeasurements = []; // [{name, value, unit}] — built by the measurement form
     var existingMeasurementsForOrder = null; // flat {label: value} from getMeasurementsByUser, or null
     var activeApprovedQuotation = null; // the Approved quotation for the open order, or null — used to prefill the Payment Done balance
+    var activeOrderQuotations = []; // every quotation (any status) for the open order, newest first — lets the panel show the original quote alongside the final negotiated one
 
     // ---------- Session guard (modal, not redirect) ----------
 
@@ -1335,6 +1336,7 @@
       document.getElementById('orderDetailBody').innerHTML = html;
 
       activeApprovedQuotation = null;
+      activeOrderQuotations = [];
       loadOrderMeasurements(order);
       loadOrderTimeline(order);
       loadOrderActionBlock(order);
@@ -1565,6 +1567,7 @@
       callApi('getQuotationsByOrder', { adminId: CURRENT_ADMIN.adminId, orderId: order.OrderID }).then(function (res) {
         if (orderId !== activeOrderId) return;
         var quotations = (res && res.success) ? res.data.quotations : [];
+        activeOrderQuotations = quotations;
         activeApprovedQuotation = quotations.filter(function (q) { return q.Status === 'Approved'; })[0] || null;
         renderAdvancePaymentBlock(order);
       }).catch(function () {
@@ -1573,26 +1576,50 @@
       });
     }
 
+    // Original = the very first quotation ever sent for this order; Final =
+    // the currently Approved one. They're the same quotation unless a
+    // Negotiation round happened in between, in which case both are shown
+    // so Shilpa can see what actually changed rather than just the latest
+    // number. Returns null until activeOrderQuotations has loaded.
+    function quotationPriceSummary_() {
+      if (!activeOrderQuotations.length) return null;
+      var byOldest = activeOrderQuotations.slice().sort(function (a, b) { return new Date(a.CreatedAt) - new Date(b.CreatedAt); });
+      var original = byOldest[0];
+      var approved = activeOrderQuotations.filter(function (q) { return q.Status === 'Approved'; })[0] || null;
+      return {
+        originalTotal: Number(original.TotalAmount) || 0,
+        finalTotal: approved ? (Number(approved.TotalAmount) || 0) : null,
+        wasNegotiated: !!approved && approved.QuotationID !== original.QuotationID,
+        requiredAdvance: Number((approved || original).RequiredAdvance) || 0
+      };
+    }
+
     function renderAdvancePaymentBlock(order) {
       var el = document.getElementById('advancePaymentBlock');
       if (!el) return;
 
       var advance = Number(order.AdvanceAmount) || 0;
-      var total = activeApprovedQuotation ? Number(activeApprovedQuotation.TotalAmount) || 0 : 0;
-      var requiredAdvance = activeApprovedQuotation ? Number(activeApprovedQuotation.RequiredAdvance) || 0 : 0;
+      var summary = quotationPriceSummary_();
+      var total = summary ? (summary.finalTotal !== null ? summary.finalTotal : summary.originalTotal) : 0;
+      var balance = Math.max(0, total - advance);
 
-      var summaryHtml = '<div class="detail-grid">' +
-        (total ? detailField('Quoted Total', formatMoney(total)) : '') +
-        (requiredAdvance ? detailField('Advance Required', formatMoney(requiredAdvance)) : '') +
-        (advance ? detailField('Advance Recorded', formatMoney(advance) + (order.AdvancePaidAt ? ' on ' + formatDate(order.AdvancePaidAt) : '')) : '') +
-      '</div>';
+      var priceRows = '';
+      if (summary) {
+        priceRows += summary.wasNegotiated
+          ? detailField('Original Quote', formatMoney(summary.originalTotal)) + detailField('Final Agreed Price', formatMoney(summary.finalTotal))
+          : detailField('Quoted Price', formatMoney(summary.originalTotal));
+        if (summary.requiredAdvance) priceRows += detailField('Advance Required', formatMoney(summary.requiredAdvance));
+      }
+      if (advance) priceRows += detailField('Advance Recorded', formatMoney(advance) + (order.AdvancePaidAt ? ' on ' + formatDate(order.AdvancePaidAt) : ''));
+      if (total) priceRows += detailField('Balance Due', formatMoney(balance));
 
       el.innerHTML = '<div class="detail-block"><div class="detail-block-title"><i class="ti ti-cash" aria-hidden="true"></i> Advance Payment</div>' +
-        summaryHtml +
-        '<div style="display:flex;gap:8px;margin-top:10px;align-items:flex-start">' +
-          '<input type="number" min="0" id="advanceAmountInput" placeholder="' + (advance ? 'Update amount (₹)' : 'Amount received (₹)') + '" style="flex:1">' +
-          '<button type="button" class="btn-primary btn-sm" id="recordAdvanceBtn" onclick="submitAdvancePayment(\'' + order.OrderID + '\')">' +
-            '<i class="ti ti-check" aria-hidden="true"></i> ' + (advance ? 'Update' : 'Record') +
+        (priceRows ? '<div class="detail-grid">' + priceRows + '</div>' : '') +
+        '<div style="margin-top:10px">' +
+          '<label for="advanceAmountInput" class="measure-form-label"><i class="ti ti-cash-banknote" aria-hidden="true"></i> ' + (advance ? 'Update Advance Amount (₹)' : 'Advance Amount Received (₹)') + '</label>' +
+          '<input type="number" min="0" id="advanceAmountInput" style="width:100%">' +
+          '<button type="button" class="btn-primary" style="width:100%;margin-top:8px" id="recordAdvanceBtn" onclick="submitAdvancePayment(\'' + order.OrderID + '\')">' +
+            '<i class="ti ti-check" aria-hidden="true"></i> ' + (advance ? 'Update Advance' : 'Record Advance') +
           '</button>' +
         '</div>' +
         '<p class="form-status" id="advancePaymentStatus" role="status" aria-live="polite"></p>' +
@@ -1847,12 +1874,18 @@
       if (needsFinalAmount) {
         var amountInput = document.getElementById('finalAmountInput');
         var hint = document.getElementById('finalAmountHint');
-        if (activeApprovedQuotation) {
-          var total = Number(activeApprovedQuotation.TotalAmount) || 0;
+        var summary = quotationPriceSummary_();
+        if (summary) {
+          var total = summary.finalTotal !== null ? summary.finalTotal : summary.originalTotal;
           var advance = Number((allOrders.filter(function (o) { return o.OrderID === activeOrderId; })[0] || {}).AdvanceAmount) || 0;
           var balance = Math.max(0, total - advance);
           if (!amountInput.value) amountInput.value = balance || '';
-          hint.textContent = 'Quoted total: ' + formatMoney(total) + (advance ? ', advance already recorded: ' + formatMoney(advance) : '') + '.';
+          var lines = summary.wasNegotiated
+            ? ['Original quote: ' + formatMoney(summary.originalTotal), 'Final agreed price: ' + formatMoney(summary.finalTotal)]
+            : ['Quoted price: ' + formatMoney(total)];
+          if (advance) lines.push('Advance already recorded: ' + formatMoney(advance));
+          lines.push('Balance due: ' + formatMoney(balance));
+          hint.innerHTML = lines.join('<br>');
         } else {
           hint.textContent = '';
         }
