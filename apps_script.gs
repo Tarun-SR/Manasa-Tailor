@@ -63,9 +63,14 @@
  *
  * ORDER LIFECYCLE:
  * Quotation Requested -> Quotation Sent -> Order Confirmed -> Measurement
- * Taken -> Work In Progress -> Ready for Collection -> Delivered (or
- * Cancelled). A customer rejecting a quotation (respondToQuotation) sends
- * the order back to "Quotation Requested" for a revised quote. Each status
+ * Taken -> Work In Progress -> Ready for Collection -> Payment Done ->
+ * Delivered (or Cancelled). A customer rejecting a quotation
+ * (respondToQuotation) sends the order to "Negotiation" instead, along with
+ * their reason (Orders.NegotiationNote) — saveQuotation can be called again
+ * from there just like from Quotation Requested, sending a revised quote
+ * and moving the order back to Quotation Sent. Ready for Collection ->
+ * Payment Done requires a finalAmount and generates a PDF invoice (see
+ * generateInvoice_) rather than being a plain status flip. Each status
  * change also writes a Notification row tagged with that same status string
  * as its Type and the OrderID, so a per-order timeline can be rebuilt by
  * filtering Notifications on OrderID instead of keeping a separate log.
@@ -104,8 +109,8 @@ var SHEET_NAMES = {
 
 var SHEET_HEADERS = {
   Users: ['UserID', 'Name', 'Phone', 'Email', 'PasswordHash', 'Salt', 'CreatedAt', 'City', 'Username'],
-  Orders: ['OrderID', 'UserID', 'Garment', 'Purpose', 'Date', 'TimeSlot', 'Notes', 'Status', 'CreatedAt', 'UpdatedAt', 'PhotoURLs', 'HasMeasurements'],
-  Quotations: ['QuotationID', 'OrderID', 'UserID', 'StitchingCost', 'FabricCost', 'AdditionalCost', 'TotalAmount', 'DeliveryTimeline', 'AdminNotes', 'Status', 'CreatedAt', 'UpdatedAt'],
+  Orders: ['OrderID', 'UserID', 'Garment', 'Purpose', 'Date', 'TimeSlot', 'Notes', 'Status', 'CreatedAt', 'UpdatedAt', 'PhotoURLs', 'HasMeasurements', 'NegotiationNote', 'AdvanceAmount', 'AdvancePaidAt', 'FinalAmountPaid', 'PaymentDoneAt', 'InvoiceURL'],
+  Quotations: ['QuotationID', 'OrderID', 'UserID', 'StitchingCost', 'FabricCost', 'AdditionalCost', 'TotalAmount', 'DeliveryTimeline', 'AdminNotes', 'RequiredAdvance', 'Status', 'CreatedAt', 'UpdatedAt'],
   Measurements: ['MeasurementID', 'UserID', 'Garment', 'MeasurementsJSON', 'CreatedAt', 'UpdatedAt'],
   Notifications: ['NotificationID', 'UserID', 'Message', 'Type', 'IsRead', 'CreatedAt', 'OrderID'],
   Admin: ['AdminID', 'Name', 'Phone', 'Email', 'PasswordHash', 'Salt', 'CreatedAt'],
@@ -127,23 +132,31 @@ var ENROLLMENT_STATUSES = ['New', 'Contacted', 'Confirmed', 'Enrolled', 'Complet
 
 // Admin-driven status transitions (the "Status Update" dropdown in admin.html).
 // Quotation Requested -> Quotation Sent happens only via saveQuotation, and
-// Quotation Sent -> Order Confirmed / Quotation Requested only via
-// respondToQuotation (the customer's approve/reject) — neither goes through
-// this map. 'Cancelled' is allowed as an admin override from any open status.
+// Quotation Sent -> Order Confirmed / Negotiation only via respondToQuotation
+// (the customer's approve/reject) — neither goes through this map.
+// Ready for Collection -> Payment Done requires a finalAmount and generates
+// the invoice (see updateOrderStatus) rather than being a plain status flip.
+// 'Cancelled' is allowed as an admin override from any open status.
 var VALID_STATUS_TRANSITIONS = {
   'Order Confirmed': ['Measurement Taken'],
   'Measurement Taken': ['Work In Progress'],
   'Work In Progress': ['Ready for Collection'],
-  'Ready for Collection': ['Delivered']
+  'Ready for Collection': ['Payment Done'],
+  'Payment Done': ['Delivered']
 };
 
 // Customer-facing order lifecycle. Order status doubles as each timeline
 // notification's Type, so the dashboard can rebuild a per-order timeline by
 // filtering Notifications on OrderID instead of storing a separate log.
+// Negotiation is a loop, not a forward step — a customer rejecting a
+// quotation lands here (with their reason, if given) instead of silently
+// looking identical to a brand-new never-quoted order; saveQuotation can be
+// called from here just like from Quotation Requested, sending a revised
+// quote and moving the order back to Quotation Sent.
 var ORDER_STATUSES = [
-  'Quotation Requested', 'Quotation Sent', 'Order Confirmed',
+  'Quotation Requested', 'Quotation Sent', 'Negotiation', 'Order Confirmed',
   'Measurement Taken', 'Work In Progress', 'Ready for Collection',
-  'Delivered', 'Cancelled'
+  'Payment Done', 'Delivered', 'Cancelled'
 ];
 
 var ACTIONS = {
@@ -176,7 +189,8 @@ var ACTIONS = {
   getAllEnrollments: getAllEnrollments,
   updateEnrollmentStatus: updateEnrollmentStatus,
   deleteClass: deleteClass,
-  deleteCustomer: deleteCustomer
+  deleteCustomer: deleteCustomer,
+  recordAdvancePayment: recordAdvancePayment
 };
 
 /** One-time setup: creates every tab from SHEET_HEADERS if it doesn't already exist. */
@@ -451,19 +465,145 @@ function updateOrderStatus(data) {
     }
   }
 
+  var finalAmount = 0;
+  if (status === 'Payment Done') {
+    finalAmount = Number(data.finalAmount);
+    if (!finalAmount || finalAmount < 0) {
+      return fail_('finalAmount is required to mark payment done');
+    }
+  }
+
   var order = setOrderStatus_(orderId, status);
 
-  var photoWarning = '';
+  var warning = '';
   if (status === 'Ready for Collection' && photos && photos.length) {
     try {
       setOrderPhotoUrls_(orderId, uploadOrderPhotos_(orderId, photos));
     } catch (err) {
-      photoWarning = 'Status updated, but photo upload failed: ' + (err && err.message ? err.message : String(err));
+      warning = 'Status updated, but photo upload failed: ' + (err && err.message ? err.message : String(err));
+    }
+  }
+
+  var invoiceUrl = '';
+  if (status === 'Payment Done') {
+    try {
+      invoiceUrl = generateInvoice_(orderId, finalAmount);
+      setOrderPaymentDone_(orderId, finalAmount, invoiceUrl);
+    } catch (err) {
+      warning = 'Status updated, but invoice generation failed: ' + (err && err.message ? err.message : String(err));
     }
   }
 
   createNotification_(order.UserID, 'Your order status has been updated to "' + status + '".', status, orderId);
-  return photoWarning ? fail_(photoWarning) : ok_({ orderId: orderId, status: status });
+  return warning ? fail_(warning) : ok_({ orderId: orderId, status: status, invoiceUrl: invoiceUrl });
+}
+
+function recordAdvancePayment(data) {
+  var adminErr = requireAdmin_(data.adminId);
+  if (adminErr) return adminErr;
+
+  var orderId = (data.orderId || '').trim();
+  var amount = Number(data.amount);
+  if (!orderId || !amount || amount <= 0) {
+    return fail_('orderId and a positive amount are required');
+  }
+
+  var found = findById_(SHEET_NAMES.ORDERS, 'OrderID', orderId);
+  if (!found) {
+    return fail_('Order not found');
+  }
+
+  withLock_(function () {
+    var sheet = getSheet_(SHEET_NAMES.ORDERS);
+    var headers = SHEET_HEADERS.Orders;
+    sheet.getRange(found.rowIndex, headers.indexOf('AdvanceAmount') + 1).setValue(amount);
+    sheet.getRange(found.rowIndex, headers.indexOf('AdvancePaidAt') + 1).setValue(new Date());
+  });
+
+  createNotification_(found.row.UserID, 'We\'ve recorded your advance payment of ₹' + amount + '.', 'Advance Payment Recorded', orderId);
+  return ok_({ orderId: orderId, amount: amount });
+}
+
+function setOrderPaymentDone_(orderId, finalAmount, invoiceUrl) {
+  var found = findById_(SHEET_NAMES.ORDERS, 'OrderID', orderId);
+  if (!found) return;
+
+  withLock_(function () {
+    var sheet = getSheet_(SHEET_NAMES.ORDERS);
+    var headers = SHEET_HEADERS.Orders;
+    sheet.getRange(found.rowIndex, headers.indexOf('FinalAmountPaid') + 1).setValue(finalAmount);
+    sheet.getRange(found.rowIndex, headers.indexOf('PaymentDoneAt') + 1).setValue(new Date());
+    sheet.getRange(found.rowIndex, headers.indexOf('InvoiceURL') + 1).setValue(invoiceUrl);
+  });
+}
+
+/**
+ * Builds a PDF invoice (Google Doc -> PDF export, same Drive-folder pattern
+ * as order photos) and returns its shareable view URL. There's no WhatsApp
+ * Business API in this project, so nothing can auto-attach this file to a
+ * WhatsApp message the way a person manually sending a PDF can — the
+ * frontend instead sends a wa.me message containing this URL as a link the
+ * customer taps to download, and shows the same link as a "Download
+ * Invoice" button on their dashboard.
+ */
+function generateInvoice_(orderId, finalAmount) {
+  var orderFound = findById_(SHEET_NAMES.ORDERS, 'OrderID', orderId);
+  if (!orderFound) throw new Error('Order not found');
+  var order = orderFound.row;
+
+  var userFound = findById_(SHEET_NAMES.USERS, 'UserID', order.UserID);
+  var user = userFound ? userFound.row : { Name: '', Phone: '', Email: '' };
+
+  var quotation = sheetToObjects_(getSheet_(SHEET_NAMES.QUOTATIONS))
+    .filter(function (q) { return q.OrderID === orderId && q.Status === 'Approved'; })
+    .sort(byCreatedAtDesc_)[0] || null;
+
+  var advance = Number(order.AdvanceAmount) || 0;
+  var tz = Session.getScriptTimeZone();
+
+  var doc = DocumentApp.create('Invoice - ' + orderId);
+  var body = doc.getBody();
+  body.appendParagraph('Manasa Tailor').setHeading(DocumentApp.ParagraphHeading.TITLE);
+  body.appendParagraph('Home Boutique — Tumkur, Karnataka').setFontSize(10);
+  body.appendParagraph('');
+  body.appendParagraph('Invoice for Order ' + orderId);
+  body.appendParagraph('Date: ' + Utilities.formatDate(new Date(), tz, 'dd MMM yyyy'));
+  body.appendParagraph('');
+  body.appendParagraph('Bill To: ' + (user.Name || ''));
+  body.appendParagraph('Mobile: ' + (user.Phone || ''));
+  body.appendParagraph('Service: ' + (order.Garment || ''));
+  body.appendParagraph('');
+
+  var rows = [['Item', 'Amount (₹)']];
+  if (quotation) {
+    rows.push(['Stitching Charges', String(quotation.StitchingCost || 0)]);
+    rows.push(['Fabric Cost', String(quotation.FabricCost || 0)]);
+    if (Number(quotation.AdditionalCost) > 0) rows.push(['Additional Charges', String(quotation.AdditionalCost)]);
+    rows.push(['Total Quoted', String(quotation.TotalAmount || 0)]);
+  }
+  if (advance > 0) rows.push(['Advance Paid', String(advance)]);
+  rows.push(['Amount Paid Now', String(finalAmount)]);
+  body.appendTable(rows);
+
+  body.appendParagraph('');
+  body.appendParagraph('Thank you for choosing Manasa Tailor!').setItalic(true);
+
+  doc.saveAndClose();
+  var pdfBlob = doc.getAs('application/pdf');
+  var docFile = DriveApp.getFileById(doc.getId());
+
+  var folder = getInvoicesFolder_();
+  var pdfFile = folder.createFile(pdfBlob).setName('Invoice-' + orderId + '.pdf');
+  pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  docFile.setTrashed(true); // only the exported PDF is kept, not the source Doc
+
+  return 'https://drive.google.com/uc?export=download&id=' + pdfFile.getId();
+}
+
+function getInvoicesFolder_() {
+  var name = 'Manasa Tailor Invoices';
+  var folders = DriveApp.getFoldersByName(name);
+  return folders.hasNext() ? folders.next() : DriveApp.createFolder(name);
 }
 
 function isValidStatusTransition_(fromStatus, toStatus) {
@@ -557,6 +697,7 @@ function saveQuotation(data) {
   }
 
   var totalAmount = stitchingCost + fabricCost + additionalCost;
+  var requiredAdvance = Number(data.requiredAdvance) || 0;
   var quotationId = genId_('QUO');
   var now = new Date();
   appendRow_(getSheet_(SHEET_NAMES.QUOTATIONS), SHEET_HEADERS.Quotations, {
@@ -569,6 +710,7 @@ function saveQuotation(data) {
     TotalAmount: totalAmount,
     DeliveryTimeline: (data.deliveryTimeline || '').trim(),
     AdminNotes: (data.adminNotes || '').trim(),
+    RequiredAdvance: requiredAdvance,
     Status: 'Pending',
     CreatedAt: now,
     UpdatedAt: now
@@ -584,6 +726,7 @@ function respondToQuotation(data) {
   var orderId = (data.orderId || '').trim();
   var quotationId = (data.quotationId || '').trim();
   var decision = (data.decision || '').trim().toLowerCase();
+  var reason = (data.reason || '').trim();
 
   if (!userId || !orderId || !quotationId || (decision !== 'approve' && decision !== 'reject')) {
     return fail_('userId, orderId, quotationId and a decision of "approve" or "reject" are required');
@@ -603,7 +746,11 @@ function respondToQuotation(data) {
   }
 
   var quotationStatus = decision === 'approve' ? 'Approved' : 'Rejected';
-  var newOrderStatus = decision === 'approve' ? 'Order Confirmed' : 'Quotation Requested';
+  // Rejecting lands on "Negotiation" rather than back on "Quotation
+  // Requested" — otherwise a rejected quote is indistinguishable from a
+  // brand-new never-quoted order in the admin dashboard, with no record of
+  // what the customer actually wanted changed.
+  var newOrderStatus = decision === 'approve' ? 'Order Confirmed' : 'Negotiation';
 
   withLock_(function () {
     var sheet = getSheet_(SHEET_NAMES.QUOTATIONS);
@@ -613,19 +760,28 @@ function respondToQuotation(data) {
   });
 
   setOrderStatus_(orderId, newOrderStatus);
+
+  if (decision === 'reject') {
+    withLock_(function () {
+      var sheet = getSheet_(SHEET_NAMES.ORDERS);
+      var headers = SHEET_HEADERS.Orders;
+      sheet.getRange(order.rowIndex, headers.indexOf('NegotiationNote') + 1).setValue(reason);
+    });
+  }
+
   createNotification_(
     userId,
     decision === 'approve'
       ? 'You approved the quotation — your order is now confirmed.'
-      : 'You rejected the quotation. We\'ll follow up with a revised one.',
+      : 'You requested changes to the quotation. We\'ll be in touch to discuss.',
     newOrderStatus,
     orderId
   );
   notifyAdmin_(
-    decision === 'approve' ? 'Customer Approved' : 'Revision Requested',
+    decision === 'approve' ? 'Customer Approved' : 'Negotiation Requested',
     decision === 'approve'
       ? 'A customer approved the quotation for order ' + orderId + '.'
-      : 'A customer requested a revised quotation for order ' + orderId + '.',
+      : 'A customer requested changes for order ' + orderId + (reason ? ': "' + reason + '"' : '.'),
     orderId
   );
 
