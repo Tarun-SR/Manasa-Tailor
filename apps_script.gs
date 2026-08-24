@@ -94,6 +94,16 @@
  * Photos" Drive folder (auto-created) and stores their view URLs in
  * Orders.PhotoURLs — Drive access is part of Apps Script's default scopes
  * under "Execute as: Me", no extra API enablement needed.
+ *
+ * INVOICES: generateInvoice_ (called from updateOrderStatus on Payment Done,
+ * and from generateInvoiceForOrder as a retry) uses DocumentApp, which is
+ * NOT covered by the scopes above. Since a live Web App request has no user
+ * present to approve a new permission, the first ever invoice attempt will
+ * fail with "You do not have permission to call DocumentApp.create" instead
+ * of prompting for it. Fix once, after deploying: select
+ * authorizeInvoiceGeneration in the toolbar dropdown and click Run, then
+ * approve the authorization dialog — see that function's own comment for
+ * the exact steps.
  */
 
 var SHEET_ID = '1TLMymlNJLjV3QSsMRSd3N7sTe7EyfBbPAn5jYiD-plw';
@@ -1573,6 +1583,31 @@ function createAdminAccount() {
     appendRow_(sheet, headers, record);
   });
   Logger.log('Created admin account: ' + email);
+}
+
+/**
+ * One-time authorization helper for invoice generation. Apps Script only
+ * asks a project owner to grant a new scope (like Docs, for DocumentApp)
+ * the first time code using it actually RUNS with a human present to click
+ * "Allow" — a Web App request (doGet/doPost) has no one there to click
+ * anything, so if DocumentApp is only ever called from updateOrderStatus /
+ * generateInvoiceForOrder, the very first invoice attempt fails with
+ * "You do not have permission to call DocumentApp.create" instead of
+ * prompting.
+ *
+ * Fix: select this function in the toolbar dropdown and click Run once.
+ * It'll pop up an authorization dialog — approve it (Review Permissions ->
+ * your account -> Advanced -> "Go to [project] (unsafe)" if Google shows
+ * that unverified-app warning -> Allow). That grant belongs to this script
+ * project, not to any one deployment, so it takes effect immediately for
+ * the live Web App too — no redeploy needed just for this. The test
+ * document it creates is trashed immediately after, same cleanup as
+ * generateInvoice_ does with its own source Doc.
+ */
+function authorizeInvoiceGeneration() {
+  var doc = DocumentApp.create('Manasa Tailor — authorization test (safe to ignore/delete)');
+  DriveApp.getFileById(doc.getId()).setTrashed(true);
+  Logger.log('Docs authorization granted — invoice generation should work now.');
 }
 
 // ---------- Sheet helpers ----------
