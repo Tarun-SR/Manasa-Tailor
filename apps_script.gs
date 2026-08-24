@@ -196,7 +196,8 @@ var ACTIONS = {
   getAllEnrollments: getAllEnrollments,
   updateEnrollmentStatus: updateEnrollmentStatus,
   deleteClass: deleteClass,
-  deleteCustomer: deleteCustomer
+  deleteCustomer: deleteCustomer,
+  generateInvoiceForOrder: generateInvoiceForOrder
 };
 
 /** One-time setup: creates every tab from SHEET_HEADERS if it doesn't already exist. */
@@ -592,6 +593,47 @@ function generateInvoice_(orderId, finalAmount, discount) {
   docFile.setTrashed(true); // only the exported PDF is kept, not the source Doc
 
   return 'https://drive.google.com/uc?export=download&id=' + pdfFile.getId();
+}
+
+/**
+ * Recovery path for an order that reached Payment Done but never got an
+ * invoice — generateInvoice_ can fail (e.g. a one-time Docs/Drive
+ * authorization prompt the first time this deployment ever touches those
+ * services) without rolling back the status change, matching
+ * updateOrderStatus's existing fail-soft handling of the Ready for
+ * Collection photo upload. There's no "Generate Invoice" transition to
+ * retry from, so this re-runs the same invoice build using whatever
+ * finalAmount/discount are already stored on the order instead of asking
+ * the admin to re-enter them.
+ */
+function generateInvoiceForOrder(data) {
+  var adminErr = requireAdmin_(data.adminId);
+  if (adminErr) return adminErr;
+
+  var orderId = (data.orderId || '').trim();
+  if (!orderId) {
+    return fail_('orderId is required');
+  }
+
+  var found = findById_(SHEET_NAMES.ORDERS, 'OrderID', orderId);
+  if (!found) {
+    return fail_('Order not found');
+  }
+
+  var finalAmount = Number(found.row.FinalAmountPaid);
+  if (!finalAmount) {
+    return fail_('This order has no recorded payment to invoice yet.');
+  }
+  var discount = Number(found.row.Discount) || 0;
+
+  var invoiceUrl = generateInvoice_(orderId, finalAmount, discount);
+  withLock_(function () {
+    var sheet = getSheet_(SHEET_NAMES.ORDERS);
+    var headers = SHEET_HEADERS.Orders;
+    sheet.getRange(found.rowIndex, headers.indexOf('InvoiceURL') + 1).setValue(invoiceUrl);
+  });
+
+  return ok_({ orderId: orderId, invoiceUrl: invoiceUrl });
 }
 
 function getInvoicesFolder_() {
