@@ -495,9 +495,13 @@ function updateOrderStatus(data) {
 
   var invoiceUrl = '';
   if (status === 'Payment Done') {
+    // Saved unconditionally, BEFORE attempting the invoice — if
+    // generateInvoice_ throws below, the amount Shilpa actually collected
+    // still needs to be on record rather than lost along with the invoice.
+    setOrderPaymentAmounts_(orderId, finalAmount, discount);
     try {
       invoiceUrl = generateInvoice_(orderId, finalAmount, discount);
-      setOrderPaymentDone_(orderId, finalAmount, invoiceUrl, discount);
+      setOrderInvoiceUrl_(orderId, invoiceUrl);
     } catch (err) {
       warning = 'Status updated, but invoice generation failed: ' + (err && err.message ? err.message : String(err));
     }
@@ -507,7 +511,7 @@ function updateOrderStatus(data) {
   return warning ? fail_(warning) : ok_({ orderId: orderId, status: status, invoiceUrl: invoiceUrl });
 }
 
-function setOrderPaymentDone_(orderId, finalAmount, invoiceUrl, discount) {
+function setOrderPaymentAmounts_(orderId, finalAmount, discount) {
   var found = findById_(SHEET_NAMES.ORDERS, 'OrderID', orderId);
   if (!found) return;
 
@@ -516,8 +520,18 @@ function setOrderPaymentDone_(orderId, finalAmount, invoiceUrl, discount) {
     var headers = SHEET_HEADERS.Orders;
     sheet.getRange(found.rowIndex, headers.indexOf('FinalAmountPaid') + 1).setValue(finalAmount);
     sheet.getRange(found.rowIndex, headers.indexOf('PaymentDoneAt') + 1).setValue(new Date());
-    sheet.getRange(found.rowIndex, headers.indexOf('InvoiceURL') + 1).setValue(invoiceUrl);
     sheet.getRange(found.rowIndex, headers.indexOf('Discount') + 1).setValue(discount || 0);
+  });
+}
+
+function setOrderInvoiceUrl_(orderId, invoiceUrl) {
+  var found = findById_(SHEET_NAMES.ORDERS, 'OrderID', orderId);
+  if (!found) return;
+
+  withLock_(function () {
+    var sheet = getSheet_(SHEET_NAMES.ORDERS);
+    var headers = SHEET_HEADERS.Orders;
+    sheet.getRange(found.rowIndex, headers.indexOf('InvoiceURL') + 1).setValue(invoiceUrl);
   });
 }
 
@@ -602,9 +616,9 @@ function generateInvoice_(orderId, finalAmount, discount) {
  * services) without rolling back the status change, matching
  * updateOrderStatus's existing fail-soft handling of the Ready for
  * Collection photo upload. There's no "Generate Invoice" transition to
- * retry from, so this re-runs the same invoice build using whatever
- * finalAmount/discount are already stored on the order instead of asking
- * the admin to re-enter them.
+ * retry from, so this re-runs the same invoice build using the
+ * finalAmount/discount already stored on the order where available, and
+ * falls back to data.finalAmount/data.discount otherwise.
  */
 function generateInvoiceForOrder(data) {
   var adminErr = requireAdmin_(data.adminId);
@@ -620,20 +634,23 @@ function generateInvoiceForOrder(data) {
     return fail_('Order not found');
   }
 
-  var finalAmount = Number(found.row.FinalAmountPaid);
+  // Normally FinalAmountPaid/Discount are already on the order (saved by
+  // updateOrderStatus before it ever attempts the invoice) — but an order
+  // that hit this failure before that ordering was fixed may have neither,
+  // so this also accepts them as fallback input to re-save alongside the
+  // retried invoice, instead of refusing to recover an order with no way
+  // forward.
+  var finalAmount = Number(found.row.FinalAmountPaid) || Number(data.finalAmount) || 0;
   if (!finalAmount) {
-    return fail_('This order has no recorded payment to invoice yet.');
+    return fail_('No payment amount is recorded for this order — enter the amount received to generate the invoice.');
   }
-  var discount = Number(found.row.Discount) || 0;
+  var discount = found.row.FinalAmountPaid ? (Number(found.row.Discount) || 0) : (Number(data.discount) || 0);
 
+  setOrderPaymentAmounts_(orderId, finalAmount, discount);
   var invoiceUrl = generateInvoice_(orderId, finalAmount, discount);
-  withLock_(function () {
-    var sheet = getSheet_(SHEET_NAMES.ORDERS);
-    var headers = SHEET_HEADERS.Orders;
-    sheet.getRange(found.rowIndex, headers.indexOf('InvoiceURL') + 1).setValue(invoiceUrl);
-  });
+  setOrderInvoiceUrl_(orderId, invoiceUrl);
 
-  return ok_({ orderId: orderId, invoiceUrl: invoiceUrl });
+  return ok_({ orderId: orderId, invoiceUrl: invoiceUrl, finalAmount: finalAmount, discount: discount });
 }
 
 function getInvoicesFolder_() {

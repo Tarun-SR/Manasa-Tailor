@@ -1339,37 +1339,65 @@
       loadOrderActionBlock(order);
     }
 
-    // Payment recorded but no InvoiceURL means generateInvoice_ failed
-    // server-side after the status change already went through (e.g. a
-    // one-time Docs/Drive authorization prompt on this deployment) — offer
-    // a retry instead of leaving the order stuck with no invoice.
+    // No InvoiceURL after reaching Payment Done (or beyond) means
+    // generateInvoice_ failed server-side after the status change already
+    // went through (e.g. a one-time Docs/Drive authorization prompt on this
+    // deployment) — offer a retry instead of leaving the order stuck. If
+    // the payment amount itself never got saved either (an order that hit
+    // this before that save was made unconditional), ask for it again
+    // rather than refusing to recover the order at all.
     function invoiceBlockHtml(order) {
       if (order.InvoiceURL) {
         return '<div class="detail-block"><div class="detail-block-title"><i class="ti ti-file-invoice" aria-hidden="true"></i> Invoice</div><a class="btn-outline btn-sm" href="' + esc(order.InvoiceURL) + '" target="_blank" rel="noopener"><i class="ti ti-download" aria-hidden="true"></i> Download Invoice</a></div>';
       }
-      if (Number(order.FinalAmountPaid) > 0) {
-        return '<div class="detail-block"><div class="detail-block-title"><i class="ti ti-file-invoice" aria-hidden="true"></i> Invoice</div>' +
-          '<p class="detail-empty">Payment was recorded but the invoice couldn\'t be generated.</p>' +
-          '<button type="button" class="btn-outline btn-sm" id="genInvoiceBtn" onclick="generateInvoiceForOrder(\'' + order.OrderID + '\')">' +
-            '<i class="ti ti-refresh" aria-hidden="true"></i> Generate Invoice' +
-          '</button>' +
-          '<p class="form-status" id="genInvoiceStatus" role="status" aria-live="polite"></p>' +
-        '</div>';
-      }
-      return '';
+      if (order.Status !== 'Payment Done' && order.Status !== 'Delivered') return '';
+
+      var hasAmount = Number(order.FinalAmountPaid) > 0;
+      return '<div class="detail-block"><div class="detail-block-title"><i class="ti ti-file-invoice" aria-hidden="true"></i> Invoice</div>' +
+        '<p class="detail-empty">' + (hasAmount
+          ? 'Payment was recorded but the invoice couldn\'t be generated.'
+          : 'No invoice was generated and the amount received wasn\'t saved — enter it again below.') + '</p>' +
+        (hasAmount ? '' :
+          '<label for="genInvoiceAmount" class="measure-form-label">Amount Received (₹)</label>' +
+          '<input type="number" min="0" id="genInvoiceAmount" style="width:100%">' +
+          '<label for="genInvoiceDiscount" class="measure-form-label" style="margin-top:8px">Discount Given (₹) <span style="text-transform:none;letter-spacing:0;opacity:.7">(optional)</span></label>' +
+          '<input type="number" min="0" id="genInvoiceDiscount" style="width:100%">'
+        ) +
+        '<button type="button" class="btn-outline btn-sm" style="margin-top:10px" id="genInvoiceBtn" onclick="generateInvoiceForOrder(\'' + order.OrderID + '\')">' +
+          '<i class="ti ti-refresh" aria-hidden="true"></i> Generate Invoice' +
+        '</button>' +
+        '<p class="form-status" id="genInvoiceStatus" role="status" aria-live="polite"></p>' +
+      '</div>';
     }
 
     function generateInvoiceForOrder(orderId) {
       var btn = document.getElementById('genInvoiceBtn');
       var status = document.getElementById('genInvoiceStatus');
+      var amountEl = document.getElementById('genInvoiceAmount');
+      var discountEl = document.getElementById('genInvoiceDiscount');
+
+      var params = { adminId: CURRENT_ADMIN.adminId, orderId: orderId };
+      if (amountEl) {
+        var amount = Number(amountEl.value);
+        if (!amount || amount <= 0) {
+          setStatus(status, 'Enter the amount that was actually received.', 'error');
+          return;
+        }
+        params.finalAmount = amount;
+        params.discount = Number((discountEl && discountEl.value) || 0) || 0;
+      }
+
       setBtnLoading(btn, true, 'Generating…');
       setStatus(status, '', '');
 
-      callApi('generateInvoiceForOrder', { adminId: CURRENT_ADMIN.adminId, orderId: orderId })
+      callApi('generateInvoiceForOrder', params)
         .then(function (res) {
           if (!res || !res.success) throw new Error((res && res.error) || 'Could not generate the invoice.');
           var order = allOrders.filter(function (o) { return o.OrderID === orderId; })[0];
-          if (order) order.InvoiceURL = res.data.invoiceUrl;
+          if (order) {
+            order.InvoiceURL = res.data.invoiceUrl;
+            if (res.data.finalAmount) order.FinalAmountPaid = res.data.finalAmount;
+          }
           loadAdminData(); // background refresh — doesn't gate the UI below
           if (orderId === activeOrderId) renderOrderDetailPanel();
         })
