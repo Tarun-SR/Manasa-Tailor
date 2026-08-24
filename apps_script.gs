@@ -69,7 +69,9 @@
  * their reason (Orders.NegotiationNote) — saveQuotation can be called again
  * from there just like from Quotation Requested, sending a revised quote
  * and moving the order back to Quotation Sent. Ready for Collection ->
- * Payment Done requires a finalAmount and generates a PDF invoice (see
+ * Payment Done requires a finalAmount (and an optional discount, only
+ * meaningful when the order was never negotiated — a negotiated price is
+ * already the final agreed number) and generates a PDF invoice (see
  * generateInvoice_) rather than being a plain status flip. Each status
  * change also writes a Notification row tagged with that same status string
  * as its Type and the OrderID, so a per-order timeline can be rebuilt by
@@ -109,7 +111,12 @@ var SHEET_NAMES = {
 
 var SHEET_HEADERS = {
   Users: ['UserID', 'Name', 'Phone', 'Email', 'PasswordHash', 'Salt', 'CreatedAt', 'City', 'Username'],
-  Orders: ['OrderID', 'UserID', 'Garment', 'Purpose', 'Date', 'TimeSlot', 'Notes', 'Status', 'CreatedAt', 'UpdatedAt', 'PhotoURLs', 'HasMeasurements', 'NegotiationNote', 'AdvanceAmount', 'AdvancePaidAt', 'FinalAmountPaid', 'PaymentDoneAt', 'InvoiceURL'],
+  // AdvanceAmount/AdvancePaidAt are unused leftovers from an earlier advance-
+  // tracking design that was scrapped in favor of the simpler Discount model
+  // below — kept in place rather than removed so column positions never
+  // shift under a Sheet that already has setupSheets() run against it (see
+  // the "NOTE ON RE-RUNNING setupSheets()" doc comment above).
+  Orders: ['OrderID', 'UserID', 'Garment', 'Purpose', 'Date', 'TimeSlot', 'Notes', 'Status', 'CreatedAt', 'UpdatedAt', 'PhotoURLs', 'HasMeasurements', 'NegotiationNote', 'AdvanceAmount', 'AdvancePaidAt', 'FinalAmountPaid', 'PaymentDoneAt', 'InvoiceURL', 'Discount'],
   Quotations: ['QuotationID', 'OrderID', 'UserID', 'StitchingCost', 'FabricCost', 'AdditionalCost', 'TotalAmount', 'DeliveryTimeline', 'AdminNotes', 'RequiredAdvance', 'Status', 'CreatedAt', 'UpdatedAt'],
   Measurements: ['MeasurementID', 'UserID', 'Garment', 'MeasurementsJSON', 'CreatedAt', 'UpdatedAt'],
   Notifications: ['NotificationID', 'UserID', 'Message', 'Type', 'IsRead', 'CreatedAt', 'OrderID'],
@@ -189,8 +196,7 @@ var ACTIONS = {
   getAllEnrollments: getAllEnrollments,
   updateEnrollmentStatus: updateEnrollmentStatus,
   deleteClass: deleteClass,
-  deleteCustomer: deleteCustomer,
-  recordAdvancePayment: recordAdvancePayment
+  deleteCustomer: deleteCustomer
 };
 
 /** One-time setup: creates every tab from SHEET_HEADERS if it doesn't already exist. */
@@ -466,11 +472,13 @@ function updateOrderStatus(data) {
   }
 
   var finalAmount = 0;
+  var discount = 0;
   if (status === 'Payment Done') {
     finalAmount = Number(data.finalAmount);
     if (!finalAmount || finalAmount < 0) {
       return fail_('finalAmount is required to mark payment done');
     }
+    discount = Number(data.discount) || 0;
   }
 
   var order = setOrderStatus_(orderId, status);
@@ -487,8 +495,8 @@ function updateOrderStatus(data) {
   var invoiceUrl = '';
   if (status === 'Payment Done') {
     try {
-      invoiceUrl = generateInvoice_(orderId, finalAmount);
-      setOrderPaymentDone_(orderId, finalAmount, invoiceUrl);
+      invoiceUrl = generateInvoice_(orderId, finalAmount, discount);
+      setOrderPaymentDone_(orderId, finalAmount, invoiceUrl, discount);
     } catch (err) {
       warning = 'Status updated, but invoice generation failed: ' + (err && err.message ? err.message : String(err));
     }
@@ -498,33 +506,7 @@ function updateOrderStatus(data) {
   return warning ? fail_(warning) : ok_({ orderId: orderId, status: status, invoiceUrl: invoiceUrl });
 }
 
-function recordAdvancePayment(data) {
-  var adminErr = requireAdmin_(data.adminId);
-  if (adminErr) return adminErr;
-
-  var orderId = (data.orderId || '').trim();
-  var amount = Number(data.amount);
-  if (!orderId || !amount || amount <= 0) {
-    return fail_('orderId and a positive amount are required');
-  }
-
-  var found = findById_(SHEET_NAMES.ORDERS, 'OrderID', orderId);
-  if (!found) {
-    return fail_('Order not found');
-  }
-
-  withLock_(function () {
-    var sheet = getSheet_(SHEET_NAMES.ORDERS);
-    var headers = SHEET_HEADERS.Orders;
-    sheet.getRange(found.rowIndex, headers.indexOf('AdvanceAmount') + 1).setValue(amount);
-    sheet.getRange(found.rowIndex, headers.indexOf('AdvancePaidAt') + 1).setValue(new Date());
-  });
-
-  createNotification_(found.row.UserID, 'We\'ve recorded your advance payment of ₹' + amount + '.', 'Advance Payment Recorded', orderId);
-  return ok_({ orderId: orderId, amount: amount });
-}
-
-function setOrderPaymentDone_(orderId, finalAmount, invoiceUrl) {
+function setOrderPaymentDone_(orderId, finalAmount, invoiceUrl, discount) {
   var found = findById_(SHEET_NAMES.ORDERS, 'OrderID', orderId);
   if (!found) return;
 
@@ -534,6 +516,7 @@ function setOrderPaymentDone_(orderId, finalAmount, invoiceUrl) {
     sheet.getRange(found.rowIndex, headers.indexOf('FinalAmountPaid') + 1).setValue(finalAmount);
     sheet.getRange(found.rowIndex, headers.indexOf('PaymentDoneAt') + 1).setValue(new Date());
     sheet.getRange(found.rowIndex, headers.indexOf('InvoiceURL') + 1).setValue(invoiceUrl);
+    sheet.getRange(found.rowIndex, headers.indexOf('Discount') + 1).setValue(discount || 0);
   });
 }
 
@@ -545,8 +528,16 @@ function setOrderPaymentDone_(orderId, finalAmount, invoiceUrl) {
  * frontend instead sends a wa.me message containing this URL as a link the
  * customer taps to download, and shows the same link as a "Download
  * Invoice" button on their dashboard.
+ *
+ * "Original" is the very first quotation ever sent for this order;
+ * "Approved" is the one the customer actually agreed to — the same
+ * quotation unless a Negotiation round happened in between. The discount
+ * (only ever entered on the admin side when there was no negotiation — a
+ * negotiated price is already the final agreed number) only appears as its
+ * own line when greater than zero, so an invoice with no discount doesn't
+ * show a confusing "Discount: ₹0" line.
  */
-function generateInvoice_(orderId, finalAmount) {
+function generateInvoice_(orderId, finalAmount, discount) {
   var orderFound = findById_(SHEET_NAMES.ORDERS, 'OrderID', orderId);
   if (!orderFound) throw new Error('Order not found');
   var order = orderFound.row;
@@ -554,11 +545,13 @@ function generateInvoice_(orderId, finalAmount) {
   var userFound = findById_(SHEET_NAMES.USERS, 'UserID', order.UserID);
   var user = userFound ? userFound.row : { Name: '', Phone: '', Email: '' };
 
-  var quotation = sheetToObjects_(getSheet_(SHEET_NAMES.QUOTATIONS))
-    .filter(function (q) { return q.OrderID === orderId && q.Status === 'Approved'; })
-    .sort(byCreatedAtDesc_)[0] || null;
+  var orderQuotations = sheetToObjects_(getSheet_(SHEET_NAMES.QUOTATIONS))
+    .filter(function (q) { return q.OrderID === orderId; })
+    .sort(byCreatedAtDesc_);
+  var approvedQuotation = orderQuotations.filter(function (q) { return q.Status === 'Approved'; })[0] || null;
+  var originalQuotation = orderQuotations[orderQuotations.length - 1] || null; // oldest, since sorted newest-first
+  var wasNegotiated = !!approvedQuotation && !!originalQuotation && approvedQuotation.QuotationID !== originalQuotation.QuotationID;
 
-  var advance = Number(order.AdvanceAmount) || 0;
   var tz = Session.getScriptTimeZone();
 
   var doc = DocumentApp.create('Invoice - ' + orderId);
@@ -575,14 +568,15 @@ function generateInvoice_(orderId, finalAmount) {
   body.appendParagraph('');
 
   var rows = [['Item', 'Amount (₹)']];
-  if (quotation) {
-    rows.push(['Stitching Charges', String(quotation.StitchingCost || 0)]);
-    rows.push(['Fabric Cost', String(quotation.FabricCost || 0)]);
-    if (Number(quotation.AdditionalCost) > 0) rows.push(['Additional Charges', String(quotation.AdditionalCost)]);
-    rows.push(['Total Quoted', String(quotation.TotalAmount || 0)]);
+  if (approvedQuotation) {
+    rows.push(['Stitching Charges', String(approvedQuotation.StitchingCost || 0)]);
+    rows.push(['Fabric Cost', String(approvedQuotation.FabricCost || 0)]);
+    if (Number(approvedQuotation.AdditionalCost) > 0) rows.push(['Additional Charges', String(approvedQuotation.AdditionalCost)]);
+    if (wasNegotiated) rows.push(['Original Quoted Amount', String(originalQuotation.TotalAmount || 0)]);
+    rows.push(['Quotation Amount', String(approvedQuotation.TotalAmount || 0)]);
   }
-  if (advance > 0) rows.push(['Advance Paid', String(advance)]);
-  rows.push(['Amount Paid Now', String(finalAmount)]);
+  if (discount > 0) rows.push(['Discount', String(discount)]);
+  rows.push(['Amount Received', String(finalAmount)]);
   body.appendTable(rows);
 
   body.appendParagraph('');

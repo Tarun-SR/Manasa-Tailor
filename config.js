@@ -79,12 +79,7 @@ var CALLAPI_SAFE_RETRY_ACTIONS = [
   // after it already succeeded just hits deleteClass's own "Class not
   // found" branch (a harmless, already-true answer) rather than deleting
   // something else or erroring in a new way. Same for deleteCustomer.
-  'deleteClass', 'deleteCustomer',
-  // Overwrites the same AdvanceAmount/AdvancePaidAt cells on the same order
-  // row every time — recording the same amount twice leaves the sheet
-  // exactly as if it were recorded once, same reasoning as
-  // updateOrderStatus/saveMeasurements above.
-  'recordAdvancePayment'
+  'deleteClass', 'deleteCustomer'
 ];
 
 // Confirmed live: a plain JSON.stringify'd object (raw braces/quotes/colons/
