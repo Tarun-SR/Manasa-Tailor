@@ -892,8 +892,7 @@
     var pendingPhotoDataUrls = [];
     var pendingMeasurements = []; // [{name, value, unit}] — built by the measurement form
     var existingMeasurementsForOrder = null; // flat {label: value} from getMeasurementsByUser, or null
-    var activeApprovedQuotation = null; // the Approved quotation for the open order, or null — used to prefill the Payment Done balance
-    var activeOrderQuotations = []; // every quotation (any status) for the open order, newest first — lets the panel show the original quote alongside the final negotiated one
+    var activeOrderQuotations = []; // every quotation (any status) for the open order, newest first — lets the Payment Done panel show the original quote alongside the final negotiated one
 
     // ---------- Session guard (modal, not redirect) ----------
 
@@ -1328,27 +1327,16 @@
           (order.Notes ? '<div class="detail-grid" style="margin-top:10px"><div class="detail-field full-width"><span class="detail-field-label">Special Instructions</span><span class="detail-field-value">' + esc(order.Notes) + '</span></div></div>' : '') +
         '</div>' +
         (order.InvoiceURL ? '<div class="detail-block"><div class="detail-block-title"><i class="ti ti-file-invoice" aria-hidden="true"></i> Invoice</div><a class="btn-outline btn-sm" href="' + esc(order.InvoiceURL) + '" target="_blank" rel="noopener"><i class="ti ti-download" aria-hidden="true"></i> Download Invoice</a></div>' : '') +
-        (shouldShowAdvanceBlock(order.Status) ? '<div id="advancePaymentBlock"><p class="detail-empty loading-row"><span class="loading-ring sm"></span> Loading…</p></div>' : '') +
         '<details class="detail-collapse"><summary>Measurements</summary><div id="orderMeasurementsContent"><p class="detail-empty loading-row"><span class="loading-ring sm"></span> Loading…</p></div></details>' +
         '<div class="detail-block"><div class="detail-block-title"><i class="ti ti-timeline" aria-hidden="true"></i> Status Timeline</div><div id="orderTimelineContent"><p class="detail-empty loading-row"><span class="loading-ring sm"></span> Loading…</p></div></div>' +
         '<div id="orderActionBlock"><p class="detail-empty loading-row"><span class="loading-ring sm"></span> Loading…</p></div>';
 
       document.getElementById('orderDetailBody').innerHTML = html;
 
-      activeApprovedQuotation = null;
       activeOrderQuotations = [];
       loadOrderMeasurements(order);
       loadOrderTimeline(order);
       loadOrderActionBlock(order);
-      if (shouldShowAdvanceBlock(order.Status)) loadAdvancePaymentBlock(order);
-    }
-
-    // Advance payments only make sense once a quotation has actually been
-    // approved (Order Confirmed onward) — before that there's no agreed
-    // total to record an advance against, and Negotiation/Cancelled aren't
-    // in TIMELINE_STAGES at all so they fall out of this check naturally.
-    function shouldShowAdvanceBlock(status) {
-      return TIMELINE_STAGES.indexOf(status) >= TIMELINE_STAGES.indexOf('Order Confirmed');
     }
 
     function detailField(label, value) {
@@ -1556,23 +1544,18 @@
       }).join('') + '</div>';
     }
 
-    // ---------- Advance payment ----------
-    // There's no payment gateway in this app, so a customer self-declaring
-    // "I paid" can't be verified — Shilpa records the advance herself only
-    // once she's personally confirmed receiving it, matching the trust
-    // model used everywhere else money is involved in this app.
+    // ---------- Payment Done pricing ----------
+    // No advance-tracking here — there's no payment gateway in this app, so
+    // recording a partial payment separately just added a step without
+    // adding any verification. Instead, everything the Payment Done step
+    // needs (the quotation amount, and the negotiated one if the order went
+    // through a Negotiation round) comes from the order's quotation history.
 
-    function loadAdvancePaymentBlock(order) {
+    function loadOrderQuotationHistory_(order) {
       var orderId = order.OrderID;
-      callApi('getQuotationsByOrder', { adminId: CURRENT_ADMIN.adminId, orderId: order.OrderID }).then(function (res) {
+      return callApi('getQuotationsByOrder', { adminId: CURRENT_ADMIN.adminId, orderId: order.OrderID }).then(function (res) {
         if (orderId !== activeOrderId) return;
-        var quotations = (res && res.success) ? res.data.quotations : [];
-        activeOrderQuotations = quotations;
-        activeApprovedQuotation = quotations.filter(function (q) { return q.Status === 'Approved'; })[0] || null;
-        renderAdvancePaymentBlock(order);
-      }).catch(function () {
-        var el = document.getElementById('advancePaymentBlock');
-        if (el) el.innerHTML = '<div class="detail-block"><p class="detail-empty">Couldn\'t load payment details.</p></div>';
+        activeOrderQuotations = (res && res.success) ? res.data.quotations : [];
       });
     }
 
@@ -1589,78 +1572,8 @@
       return {
         originalTotal: Number(original.TotalAmount) || 0,
         finalTotal: approved ? (Number(approved.TotalAmount) || 0) : null,
-        wasNegotiated: !!approved && approved.QuotationID !== original.QuotationID,
-        requiredAdvance: Number((approved || original).RequiredAdvance) || 0
+        wasNegotiated: !!approved && approved.QuotationID !== original.QuotationID
       };
-    }
-
-    function renderAdvancePaymentBlock(order) {
-      var el = document.getElementById('advancePaymentBlock');
-      if (!el) return;
-
-      var advance = Number(order.AdvanceAmount) || 0;
-      var summary = quotationPriceSummary_();
-      var total = summary ? (summary.finalTotal !== null ? summary.finalTotal : summary.originalTotal) : 0;
-      var balance = Math.max(0, total - advance);
-
-      var priceRows = '';
-      if (summary) {
-        priceRows += summary.wasNegotiated
-          ? detailField('Original Quote', formatMoney(summary.originalTotal)) + detailField('Final Agreed Price', formatMoney(summary.finalTotal))
-          : detailField('Quoted Price', formatMoney(summary.originalTotal));
-        if (summary.requiredAdvance) priceRows += detailField('Advance Required', formatMoney(summary.requiredAdvance));
-      }
-      if (advance) priceRows += detailField('Advance Recorded', formatMoney(advance) + (order.AdvancePaidAt ? ' on ' + formatDate(order.AdvancePaidAt) : ''));
-      if (total) priceRows += detailField('Balance Due', formatMoney(balance));
-
-      el.innerHTML = '<div class="detail-block"><div class="detail-block-title"><i class="ti ti-cash" aria-hidden="true"></i> Advance Payment</div>' +
-        (priceRows ? '<div class="detail-grid">' + priceRows + '</div>' : '') +
-        '<div style="margin-top:10px">' +
-          '<label for="advanceAmountInput" class="measure-form-label"><i class="ti ti-cash-banknote" aria-hidden="true"></i> ' + (advance ? 'Update Advance Amount (₹)' : 'Advance Amount Received (₹)') + '</label>' +
-          '<input type="number" min="0" id="advanceAmountInput" style="width:100%">' +
-          '<button type="button" class="btn-primary" style="width:100%;margin-top:8px" id="recordAdvanceBtn" onclick="submitAdvancePayment(\'' + order.OrderID + '\')">' +
-            '<i class="ti ti-check" aria-hidden="true"></i> ' + (advance ? 'Update Advance' : 'Record Advance') +
-          '</button>' +
-        '</div>' +
-        '<p class="form-status" id="advancePaymentStatus" role="status" aria-live="polite"></p>' +
-      '</div>';
-    }
-
-    function submitAdvancePayment(orderId) {
-      var input = document.getElementById('advanceAmountInput');
-      var btn = document.getElementById('recordAdvanceBtn');
-      var status = document.getElementById('advancePaymentStatus');
-      var amount = Number(input.value);
-
-      if (!amount || amount <= 0) {
-        setStatus(status, 'Enter an amount greater than zero.', 'error');
-        return;
-      }
-
-      setBtnLoading(btn, true, 'Saving…');
-      setStatus(status, '', '');
-
-      callApi('recordAdvancePayment', { adminId: CURRENT_ADMIN.adminId, orderId: orderId, amount: amount })
-        .then(function (res) {
-          if (!res || !res.success) throw new Error((res && res.error) || 'Could not record the payment.');
-          var order = allOrders.filter(function (o) { return o.OrderID === orderId; })[0];
-          if (order) {
-            order.AdvanceAmount = amount;
-            order.AdvancePaidAt = new Date().toISOString();
-            renderAdvancePaymentBlock(order);
-          }
-          // The Update Status block (if a Payment Done target is already
-          // selected there) shows a receivable amount computed from the
-          // advance — refresh it too so it doesn't keep showing a stale
-          // figure from before this advance was recorded.
-          var statusSelect = document.getElementById('statusSelect');
-          if (statusSelect && statusSelect.value === 'Payment Done') onStatusSelectChange();
-          loadAdminData(); // background refresh — doesn't gate the UI above
-        })
-        .catch(function (err) {
-          setStatus(status, (err && err.message) || "Couldn't reach the server.", 'error');
-          setBtnLoading(btn, false);
-        });
     }
 
     function loadOrderActionBlock(order) {
@@ -1709,6 +1622,13 @@
 
       block.innerHTML = statusUpdateHtml(order);
       renderQuickAddChips(order.Garment);
+
+      // Only Ready for Collection can move to Payment Done, which needs the
+      // order's quotation history to show/validate the amount to collect —
+      // fetch it now so it's ready by the time that option is picked.
+      if (order.Status === 'Ready for Collection') {
+        loadOrderQuotationHistory_(order);
+      }
     }
 
     // ---------- Quotation builder ----------
@@ -1850,6 +1770,10 @@
           '</div>' +
           '<div id="finalAmountWrap" style="display:none;margin-top:-4px">' +
             '<div class="detail-grid" id="finalAmountSummary"></div>' +
+            '<div id="discountFieldWrap" style="display:none;margin-top:10px">' +
+              '<label for="discountInput" class="measure-form-label"><i class="ti ti-discount-2" aria-hidden="true"></i> Discount Given (₹) <span style="text-transform:none;letter-spacing:0;opacity:.7">(optional)</span></label>' +
+              '<input type="number" min="0" id="discountInput" oninput="onDiscountInput_()" style="width:100%">' +
+            '</div>' +
             '<label for="finalAmountInput" class="measure-form-label" style="margin-top:10px"><i class="ti ti-cash-banknote" aria-hidden="true"></i> Amount Actually Received (₹)</label>' +
             '<input type="number" min="0" id="finalAmountInput" oninput="updateStatusBtnState()" style="width:100%">' +
             '<p class="form-status" id="finalAmountMatchStatus" role="status" aria-live="polite"></p>' +
@@ -1878,25 +1802,7 @@
       document.getElementById('measurementFormWrap').style.display = needsMeasurements ? 'block' : 'none';
       document.getElementById('finalAmountWrap').style.display = needsFinalAmount ? 'block' : 'none';
 
-      if (needsFinalAmount) {
-        var amountInput = document.getElementById('finalAmountInput');
-        var summaryEl = document.getElementById('finalAmountSummary');
-        var summary = quotationPriceSummary_();
-        if (summary) {
-          var total = summary.finalTotal !== null ? summary.finalTotal : summary.originalTotal;
-          var advance = Number((allOrders.filter(function (o) { return o.OrderID === activeOrderId; })[0] || {}).AdvanceAmount) || 0;
-          var balance = Math.max(0, total - advance);
-          var rows = summary.wasNegotiated
-            ? detailField('Original Quote', formatMoney(summary.originalTotal)) + detailField('Final Agreed Price', formatMoney(summary.finalTotal))
-            : detailField('Quoted Price', formatMoney(total));
-          if (advance) rows += detailField('Advance Recorded', formatMoney(advance));
-          rows += detailField('Receivable Now', formatMoney(balance));
-          summaryEl.innerHTML = rows;
-          if (!amountInput.value) amountInput.value = balance || '';
-        } else {
-          summaryEl.innerHTML = '';
-        }
-      }
+      if (needsFinalAmount) refreshPaymentDoneCalc_();
 
       // Pre-fill from whatever's already saved for this order's garment (from
       // booking.html or an earlier admin edit) so building on it doesn't
@@ -1949,13 +1855,54 @@
       btn.disabled = false;
     }
 
-    // The invoice should only ever be generated once the books actually
-    // balance — advance already recorded + what Shilpa says she just
-    // received has to add up to the agreed price, not just be "some
-    // positive number". If it doesn't match, the fix is to correct the
-    // Advance Payment block above rather than let a mismatched invoice
-    // go out. A small epsilon (not exact equality) guards against
-    // meaningless float rounding on the subtraction above.
+    // The negotiated price (if the order went through a Negotiation round)
+    // already IS the final agreed number, so a discount only makes sense on
+    // top of the original quotation when there was no negotiation.
+    function paymentDoneMainAmount_(summary) {
+      return summary.wasNegotiated ? summary.finalTotal : summary.originalTotal;
+    }
+
+    // Redraws the Quotation Amount / Negotiated Amount / Discount / Amount
+    // to Collect breakdown and re-prefills the received-amount field.
+    // Called on selecting Payment Done and again whenever the discount
+    // input changes, so the breakdown always reflects what's on screen.
+    function refreshPaymentDoneCalc_() {
+      var summaryEl = document.getElementById('finalAmountSummary');
+      var discountWrap = document.getElementById('discountFieldWrap');
+      var amountInput = document.getElementById('finalAmountInput');
+      var summary = quotationPriceSummary_();
+
+      if (!summary) {
+        summaryEl.innerHTML = '';
+        discountWrap.style.display = 'none';
+        return;
+      }
+
+      discountWrap.style.display = summary.wasNegotiated ? 'none' : 'block';
+      var mainAmount = paymentDoneMainAmount_(summary);
+      var discount = summary.wasNegotiated ? 0 : (Number(document.getElementById('discountInput').value) || 0);
+      var payable = Math.max(0, mainAmount - discount);
+
+      var rows = summary.wasNegotiated
+        ? detailField('Original Quote', formatMoney(summary.originalTotal)) + detailField('Negotiated Amount', formatMoney(summary.finalTotal))
+        : detailField('Quotation Amount', formatMoney(summary.originalTotal));
+      if (discount > 0) rows += detailField('Discount Given', formatMoney(discount));
+      rows += detailField('Amount to Collect', formatMoney(payable));
+      summaryEl.innerHTML = rows;
+
+      if (!amountInput.value) amountInput.value = payable || '';
+    }
+
+    function onDiscountInput_() {
+      refreshPaymentDoneCalc_();
+      updateStatusBtnState();
+    }
+
+    // The invoice should only ever be generated once the amount Shilpa says
+    // she actually received matches what's owed — the quotation amount (or
+    // the negotiated one, if the order went through a Negotiation round)
+    // minus any discount she's given. A small epsilon (not exact equality)
+    // guards against meaningless float rounding on that subtraction.
     function checkFinalAmountMatch_() {
       var el = document.getElementById('finalAmountMatchStatus');
       var amountInput = document.getElementById('finalAmountInput');
@@ -1964,10 +1911,9 @@
       var summary = quotationPriceSummary_();
       if (!summary) { setStatus(el, '', ''); return false; }
 
-      var order = allOrders.filter(function (o) { return o.OrderID === activeOrderId; })[0] || {};
-      var advance = Number(order.AdvanceAmount) || 0;
-      var total = summary.finalTotal !== null ? summary.finalTotal : summary.originalTotal;
-      var expected = Math.max(0, total - advance);
+      var mainAmount = paymentDoneMainAmount_(summary);
+      var discount = summary.wasNegotiated ? 0 : (Number(document.getElementById('discountInput').value) || 0);
+      var expected = Math.max(0, mainAmount - discount);
       var entered = Number(amountInput.value) || 0;
 
       if (!amountInput.value) {
@@ -1976,9 +1922,9 @@
       }
       var matches = entered > 0 && Math.abs(entered - expected) < 0.5;
       if (matches) {
-        setStatus(el, 'Matches the receivable amount — ready to mark Payment Done.', 'success');
+        setStatus(el, 'Matches the amount to collect — ready to mark Payment Done.', 'success');
       } else {
-        setStatus(el, 'Doesn\'t match — receivable amount is ' + formatMoney(expected) + '. Fix the Advance Payment above first if that\'s wrong.', 'error');
+        setStatus(el, 'Doesn\'t match — amount to collect is ' + formatMoney(expected) + '.', 'error');
       }
       return matches;
     }
@@ -2178,7 +2124,11 @@
 
       function updateStatusStep() {
         var params = { adminId: CURRENT_ADMIN.adminId, orderId: orderId, status: newStatus };
-        if (newStatus === 'Payment Done') params.finalAmount = finalAmount;
+        if (newStatus === 'Payment Done') {
+          params.finalAmount = finalAmount;
+          var summary = quotationPriceSummary_();
+          params.discount = (summary && !summary.wasNegotiated) ? (Number(document.getElementById('discountInput').value) || 0) : 0;
+        }
         return callApi('updateOrderStatus', params)
           .then(function (res) {
             if (!res || !res.success) throw new Error((res && res.error) || 'Something went wrong.');

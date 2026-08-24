@@ -779,13 +779,13 @@
     }
 
     function renderPayment(order) {
-      var advance = Number(order.AdvanceAmount) || 0;
       var finalPaid = Number(order.FinalAmountPaid) || 0;
-      if (!advance && !finalPaid && !order.InvoiceURL) return '';
+      var discount = Number(order.Discount) || 0;
+      if (!finalPaid && !order.InvoiceURL) return '';
 
       var rows = '';
-      if (advance) rows += '<p class="quotation-notes"><i class="ti ti-cash" aria-hidden="true"></i> Advance paid: ' + formatMoney(advance) + (order.AdvancePaidAt ? ' on ' + formatDate(order.AdvancePaidAt) : '') + '</p>';
-      if (finalPaid) rows += '<p class="quotation-notes"><i class="ti ti-check" aria-hidden="true"></i> Final payment: ' + formatMoney(finalPaid) + (order.PaymentDoneAt ? ' on ' + formatDate(order.PaymentDoneAt) : '') + '</p>';
+      if (discount) rows += '<p class="quotation-notes"><i class="ti ti-discount-2" aria-hidden="true"></i> Discount given: ' + formatMoney(discount) + '</p>';
+      if (finalPaid) rows += '<p class="quotation-notes"><i class="ti ti-check" aria-hidden="true"></i> Payment received: ' + formatMoney(finalPaid) + (order.PaymentDoneAt ? ' on ' + formatDate(order.PaymentDoneAt) : '') + '</p>';
       var invoiceHtml = order.InvoiceURL
         ? '<a class="btn-outline btn-sm" href="' + esc(order.InvoiceURL) + '" target="_blank" rel="noopener"><i class="ti ti-download" aria-hidden="true"></i> Download Invoice</a>'
         : '';
@@ -899,7 +899,6 @@
       if (type === 'Order Confirmed') return 'ti-checkbox';
       if (type === 'Negotiation') return 'ti-refresh';
       if (type === 'Payment Done') return 'ti-cash';
-      if (type === 'Advance Payment Recorded') return 'ti-cash';
       if (type === 'Delivered') return 'ti-truck-delivery';
       if (type === 'Class Published') return 'ti-school';
       return 'ti-bell';
@@ -917,7 +916,6 @@
         'Negotiation': 'Quotation Update Requested',
         'Ready for Collection': 'Ready for Collection',
         'Payment Done': 'Payment Received',
-        'Advance Payment Recorded': 'Advance Payment Recorded',
         'Class Published': 'New Tailoring Class'
       };
       return map[type] || 'Status Update';
