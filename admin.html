@@ -1326,7 +1326,7 @@
           '</div>' +
           (order.Notes ? '<div class="detail-grid" style="margin-top:10px"><div class="detail-field full-width"><span class="detail-field-label">Special Instructions</span><span class="detail-field-value">' + esc(order.Notes) + '</span></div></div>' : '') +
         '</div>' +
-        (order.InvoiceURL ? '<div class="detail-block"><div class="detail-block-title"><i class="ti ti-file-invoice" aria-hidden="true"></i> Invoice</div><a class="btn-outline btn-sm" href="' + esc(order.InvoiceURL) + '" target="_blank" rel="noopener"><i class="ti ti-download" aria-hidden="true"></i> Download Invoice</a></div>' : '') +
+        invoiceBlockHtml(order) +
         '<details class="detail-collapse"><summary>Measurements</summary><div id="orderMeasurementsContent"><p class="detail-empty loading-row"><span class="loading-ring sm"></span> Loading…</p></div></details>' +
         '<div class="detail-block"><div class="detail-block-title"><i class="ti ti-timeline" aria-hidden="true"></i> Status Timeline</div><div id="orderTimelineContent"><p class="detail-empty loading-row"><span class="loading-ring sm"></span> Loading…</p></div></div>' +
         '<div id="orderActionBlock"><p class="detail-empty loading-row"><span class="loading-ring sm"></span> Loading…</p></div>';
@@ -1337,6 +1337,46 @@
       loadOrderMeasurements(order);
       loadOrderTimeline(order);
       loadOrderActionBlock(order);
+    }
+
+    // Payment recorded but no InvoiceURL means generateInvoice_ failed
+    // server-side after the status change already went through (e.g. a
+    // one-time Docs/Drive authorization prompt on this deployment) — offer
+    // a retry instead of leaving the order stuck with no invoice.
+    function invoiceBlockHtml(order) {
+      if (order.InvoiceURL) {
+        return '<div class="detail-block"><div class="detail-block-title"><i class="ti ti-file-invoice" aria-hidden="true"></i> Invoice</div><a class="btn-outline btn-sm" href="' + esc(order.InvoiceURL) + '" target="_blank" rel="noopener"><i class="ti ti-download" aria-hidden="true"></i> Download Invoice</a></div>';
+      }
+      if (Number(order.FinalAmountPaid) > 0) {
+        return '<div class="detail-block"><div class="detail-block-title"><i class="ti ti-file-invoice" aria-hidden="true"></i> Invoice</div>' +
+          '<p class="detail-empty">Payment was recorded but the invoice couldn\'t be generated.</p>' +
+          '<button type="button" class="btn-outline btn-sm" id="genInvoiceBtn" onclick="generateInvoiceForOrder(\'' + order.OrderID + '\')">' +
+            '<i class="ti ti-refresh" aria-hidden="true"></i> Generate Invoice' +
+          '</button>' +
+          '<p class="form-status" id="genInvoiceStatus" role="status" aria-live="polite"></p>' +
+        '</div>';
+      }
+      return '';
+    }
+
+    function generateInvoiceForOrder(orderId) {
+      var btn = document.getElementById('genInvoiceBtn');
+      var status = document.getElementById('genInvoiceStatus');
+      setBtnLoading(btn, true, 'Generating…');
+      setStatus(status, '', '');
+
+      callApi('generateInvoiceForOrder', { adminId: CURRENT_ADMIN.adminId, orderId: orderId })
+        .then(function (res) {
+          if (!res || !res.success) throw new Error((res && res.error) || 'Could not generate the invoice.');
+          var order = allOrders.filter(function (o) { return o.OrderID === orderId; })[0];
+          if (order) order.InvoiceURL = res.data.invoiceUrl;
+          loadAdminData(); // background refresh — doesn't gate the UI below
+          if (orderId === activeOrderId) renderOrderDetailPanel();
+        })
+        .catch(function (err) {
+          setStatus(status, (err && err.message) || "Couldn't reach the server.", 'error');
+          setBtnLoading(btn, false);
+        });
     }
 
     function detailField(label, value) {
