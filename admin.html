@@ -846,19 +846,21 @@
     var ADMIN_WHATSAPP = '916360194277';
     var LOGIN_URL = 'https://tarun-sr.github.io/Manasa-Tailor/login.html';
 
-    var TIMELINE_STAGES = ['Quotation Requested', 'Quotation Sent', 'Order Confirmed', 'Measurement Taken', 'Work In Progress', 'Ready for Collection', 'Delivered'];
+    var TIMELINE_STAGES = ['Quotation Requested', 'Quotation Sent', 'Order Confirmed', 'Measurement Taken', 'Work In Progress', 'Ready for Collection', 'Payment Done', 'Delivered'];
     var VALID_STATUS_TRANSITIONS = {
       'Order Confirmed': ['Measurement Taken'],
       'Measurement Taken': ['Work In Progress'],
       'Work In Progress': ['Ready for Collection'],
-      'Ready for Collection': ['Delivered']
+      'Ready for Collection': ['Payment Done'],
+      'Payment Done': ['Delivered']
     };
     var FILTER_TABS = [
       { key: 'all', label: 'All', statuses: null },
       { key: 'pending', label: 'Pending', statuses: ['Quotation Requested', 'Quotation Sent'] },
+      { key: 'negotiation', label: 'Negotiation', statuses: ['Negotiation'] },
       { key: 'confirmed', label: 'Confirmed', statuses: ['Order Confirmed', 'Measurement Taken'] },
       { key: 'inprogress', label: 'In Progress', statuses: ['Work In Progress'] },
-      { key: 'ready', label: 'Ready', statuses: ['Ready for Collection'] },
+      { key: 'ready', label: 'Ready', statuses: ['Ready for Collection', 'Payment Done'] },
       { key: 'delivered', label: 'Delivered', statuses: ['Delivered'] }
     ];
     var SERVICES = ['Saree Blouse', 'Salwar / Churidar Set', 'Gown', 'Bridal Wear', 'Kurti / Top', 'Kids Frock', 'Alterations'];
@@ -890,6 +892,7 @@
     var pendingPhotoDataUrls = [];
     var pendingMeasurements = []; // [{name, value, unit}] — built by the measurement form
     var existingMeasurementsForOrder = null; // flat {label: value} from getMeasurementsByUser, or null
+    var activeApprovedQuotation = null; // the Approved quotation for the open order, or null — used to prefill the Payment Done balance
 
     // ---------- Session guard (modal, not redirect) ----------
 
@@ -1024,10 +1027,12 @@
       var map = {
         'Quotation Requested': { cls: 'badge-yellow', emoji: '🟡' },
         'Quotation Sent': { cls: 'badge-yellow', emoji: '🟡' },
+        'Negotiation': { cls: 'badge-yellow', emoji: '🟠' },
         'Order Confirmed': { cls: 'badge-blue', emoji: '🔵' },
         'Measurement Taken': { cls: 'badge-blue', emoji: '🔵' },
         'Work In Progress': { cls: 'badge-blue', emoji: '🔵' },
         'Ready for Collection': { cls: 'badge-green', emoji: '🟢' },
+        'Payment Done': { cls: 'badge-green', emoji: '💰' },
         'Delivered': { cls: 'badge-check', emoji: '✅' },
         'Cancelled': { cls: 'badge-muted', emoji: '⚪' }
       };
@@ -1155,7 +1160,7 @@
       // Matches the "Total Active" count exactly (all non-Delivered orders,
       // Cancelled included) so the card's number and its filtered table agree.
       currentFilterStatuses = isActiveDefinition
-        ? ['Quotation Requested', 'Quotation Sent', 'Order Confirmed', 'Measurement Taken', 'Work In Progress', 'Ready for Collection', 'Cancelled']
+        ? ['Quotation Requested', 'Quotation Sent', 'Negotiation', 'Order Confirmed', 'Measurement Taken', 'Work In Progress', 'Ready for Collection', 'Payment Done', 'Cancelled']
         : statuses;
       activeCardKey = cardKey;
       activeTabKey = null;
@@ -1321,15 +1326,27 @@
           '</div>' +
           (order.Notes ? '<div class="detail-grid" style="margin-top:10px"><div class="detail-field full-width"><span class="detail-field-label">Special Instructions</span><span class="detail-field-value">' + esc(order.Notes) + '</span></div></div>' : '') +
         '</div>' +
+        (order.InvoiceURL ? '<div class="detail-block"><div class="detail-block-title"><i class="ti ti-file-invoice" aria-hidden="true"></i> Invoice</div><a class="btn-outline btn-sm" href="' + esc(order.InvoiceURL) + '" target="_blank" rel="noopener"><i class="ti ti-download" aria-hidden="true"></i> Download Invoice</a></div>' : '') +
+        (shouldShowAdvanceBlock(order.Status) ? '<div id="advancePaymentBlock"><p class="detail-empty loading-row"><span class="loading-ring sm"></span> Loading…</p></div>' : '') +
         '<details class="detail-collapse"><summary>Measurements</summary><div id="orderMeasurementsContent"><p class="detail-empty loading-row"><span class="loading-ring sm"></span> Loading…</p></div></details>' +
         '<div class="detail-block"><div class="detail-block-title"><i class="ti ti-timeline" aria-hidden="true"></i> Status Timeline</div><div id="orderTimelineContent"><p class="detail-empty loading-row"><span class="loading-ring sm"></span> Loading…</p></div></div>' +
         '<div id="orderActionBlock"><p class="detail-empty loading-row"><span class="loading-ring sm"></span> Loading…</p></div>';
 
       document.getElementById('orderDetailBody').innerHTML = html;
 
+      activeApprovedQuotation = null;
       loadOrderMeasurements(order);
       loadOrderTimeline(order);
       loadOrderActionBlock(order);
+      if (shouldShowAdvanceBlock(order.Status)) loadAdvancePaymentBlock(order);
+    }
+
+    // Advance payments only make sense once a quotation has actually been
+    // approved (Order Confirmed onward) — before that there's no agreed
+    // total to record an advance against, and Negotiation/Cancelled aren't
+    // in TIMELINE_STAGES at all so they fall out of this check naturally.
+    function shouldShowAdvanceBlock(status) {
+      return TIMELINE_STAGES.indexOf(status) >= TIMELINE_STAGES.indexOf('Order Confirmed');
     }
 
     function detailField(label, value) {
@@ -1519,6 +1536,11 @@
       if (order.Status === 'Cancelled') {
         return '<p class="timeline-cancelled"><i class="ti ti-x" aria-hidden="true"></i> This order was cancelled.</p>';
       }
+      if (order.Status === 'Negotiation') {
+        return '<p class="timeline-cancelled" style="color:#b3720a"><i class="ti ti-refresh" aria-hidden="true"></i> Customer requested changes to the quotation' +
+          (order.NegotiationNote ? ': "' + esc(order.NegotiationNote) + '"' : '.') +
+          ' A revised quotation is in progress.</p>';
+      }
       var currentIndex = TIMELINE_STAGES.indexOf(order.Status);
       return '<div class="timeline">' + TIMELINE_STAGES.map(function (stage, i) {
         var event = events.filter(function (n) { return n.Type === stage; })[0];
@@ -1532,12 +1554,105 @@
       }).join('') + '</div>';
     }
 
+    // ---------- Advance payment ----------
+    // There's no payment gateway in this app, so a customer self-declaring
+    // "I paid" can't be verified — Shilpa records the advance herself only
+    // once she's personally confirmed receiving it, matching the trust
+    // model used everywhere else money is involved in this app.
+
+    function loadAdvancePaymentBlock(order) {
+      var orderId = order.OrderID;
+      callApi('getQuotationsByOrder', { adminId: CURRENT_ADMIN.adminId, orderId: order.OrderID }).then(function (res) {
+        if (orderId !== activeOrderId) return;
+        var quotations = (res && res.success) ? res.data.quotations : [];
+        activeApprovedQuotation = quotations.filter(function (q) { return q.Status === 'Approved'; })[0] || null;
+        renderAdvancePaymentBlock(order);
+      }).catch(function () {
+        var el = document.getElementById('advancePaymentBlock');
+        if (el) el.innerHTML = '<div class="detail-block"><p class="detail-empty">Couldn\'t load payment details.</p></div>';
+      });
+    }
+
+    function renderAdvancePaymentBlock(order) {
+      var el = document.getElementById('advancePaymentBlock');
+      if (!el) return;
+
+      var advance = Number(order.AdvanceAmount) || 0;
+      var total = activeApprovedQuotation ? Number(activeApprovedQuotation.TotalAmount) || 0 : 0;
+      var requiredAdvance = activeApprovedQuotation ? Number(activeApprovedQuotation.RequiredAdvance) || 0 : 0;
+
+      var summaryHtml = '<div class="detail-grid">' +
+        (total ? detailField('Quoted Total', formatMoney(total)) : '') +
+        (requiredAdvance ? detailField('Advance Required', formatMoney(requiredAdvance)) : '') +
+        (advance ? detailField('Advance Recorded', formatMoney(advance) + (order.AdvancePaidAt ? ' on ' + formatDate(order.AdvancePaidAt) : '')) : '') +
+      '</div>';
+
+      el.innerHTML = '<div class="detail-block"><div class="detail-block-title"><i class="ti ti-cash" aria-hidden="true"></i> Advance Payment</div>' +
+        summaryHtml +
+        '<div style="display:flex;gap:8px;margin-top:10px;align-items:flex-start">' +
+          '<input type="number" min="0" id="advanceAmountInput" placeholder="' + (advance ? 'Update amount (₹)' : 'Amount received (₹)') + '" style="flex:1">' +
+          '<button type="button" class="btn-primary btn-sm" id="recordAdvanceBtn" onclick="submitAdvancePayment(\'' + order.OrderID + '\')">' +
+            '<i class="ti ti-check" aria-hidden="true"></i> ' + (advance ? 'Update' : 'Record') +
+          '</button>' +
+        '</div>' +
+        '<p class="form-status" id="advancePaymentStatus" role="status" aria-live="polite"></p>' +
+      '</div>';
+    }
+
+    function submitAdvancePayment(orderId) {
+      var input = document.getElementById('advanceAmountInput');
+      var btn = document.getElementById('recordAdvanceBtn');
+      var status = document.getElementById('advancePaymentStatus');
+      var amount = Number(input.value);
+
+      if (!amount || amount <= 0) {
+        setStatus(status, 'Enter an amount greater than zero.', 'error');
+        return;
+      }
+
+      setBtnLoading(btn, true, 'Saving…');
+      setStatus(status, '', '');
+
+      callApi('recordAdvancePayment', { adminId: CURRENT_ADMIN.adminId, orderId: orderId, amount: amount })
+        .then(function (res) {
+          if (!res || !res.success) throw new Error((res && res.error) || 'Could not record the payment.');
+          var order = allOrders.filter(function (o) { return o.OrderID === orderId; })[0];
+          if (order) {
+            order.AdvanceAmount = amount;
+            order.AdvancePaidAt = new Date().toISOString();
+            renderAdvancePaymentBlock(order);
+          }
+          loadAdminData(); // background refresh — doesn't gate the UI above
+        })
+        .catch(function (err) {
+          setStatus(status, (err && err.message) || "Couldn't reach the server.", 'error');
+          setBtnLoading(btn, false);
+        });
+    }
+
     function loadOrderActionBlock(order) {
       var block = document.getElementById('orderActionBlock');
       if (!block) return;
 
       if (order.Status === 'Quotation Requested') {
-        block.innerHTML = quotationBuilderHtml(order);
+        block.innerHTML = quotationBuilderHtml(order, null);
+        return;
+      }
+      if (order.Status === 'Negotiation') {
+        var negOrderId = order.OrderID;
+        block.innerHTML = '<p class="detail-empty loading-row"><span class="loading-ring sm"></span> Loading…</p>';
+        callApi('getQuotationsByOrder', { adminId: CURRENT_ADMIN.adminId, orderId: order.OrderID }).then(function (res) {
+          if (negOrderId !== activeOrderId) return;
+          var el = document.getElementById('orderActionBlock');
+          if (!el) return;
+          var prevQuotation = (res && res.success) ? res.data.quotations[0] : null;
+          el.innerHTML =
+            '<div class="detail-block" style="border-color:#f0c869;background:#fdf6e6">' +
+              '<div class="detail-block-title"><i class="ti ti-message-circle" aria-hidden="true"></i> Negotiation</div>' +
+              '<p class="detail-empty">' + (order.NegotiationNote ? esc(order.NegotiationNote) : 'The customer asked for changes to the quotation — call them to discuss, then send a revised quotation below.') + '</p>' +
+            '</div>' +
+            quotationBuilderHtml(order, prevQuotation);
+        });
         return;
       }
       if (order.Status === 'Quotation Sent') {
@@ -1565,20 +1680,24 @@
 
     // ---------- Quotation builder ----------
 
-    function quotationBuilderHtml(order) {
+    // prefill: the previous quotation to carry forward when revising after a
+    // Negotiation (null for a brand-new quotation, e.g. from Quotation Requested).
+    function quotationBuilderHtml(order, prefill) {
+      var p = prefill || {};
       return '' +
         '<div class="detail-block">' +
-          '<div class="detail-block-title"><i class="ti ti-receipt" aria-hidden="true"></i> Quotation Builder</div>' +
+          '<div class="detail-block-title"><i class="ti ti-receipt" aria-hidden="true"></i> ' + (prefill ? 'Revised Quotation' : 'Quotation Builder') + '</div>' +
           '<div class="qb-grid">' +
-            '<div class="qb-field"><label for="qbStitching">Stitching Charges (₹)</label><input id="qbStitching" type="number" min="0" oninput="updateQbTotal()"></div>' +
-            '<div class="qb-field"><label for="qbFabric">Fabric Cost (₹)</label><input id="qbFabric" type="number" min="0" oninput="updateQbTotal()"></div>' +
-            '<div class="qb-field"><label for="qbAdditional">Additional Charges (₹)</label><input id="qbAdditional" type="number" min="0" oninput="updateQbTotal()"></div>' +
-            '<div class="qb-field"><label for="qbTimeline">Delivery Timeline</label><input id="qbTimeline" type="text" placeholder="e.g. 7-10 working days"></div>' +
-            '<div class="qb-field full-width"><label for="qbAdminNotes">Admin Notes <span style="text-transform:none;letter-spacing:0;opacity:.7">(internal only)</span></label><textarea id="qbAdminNotes" rows="2"></textarea></div>' +
+            '<div class="qb-field"><label for="qbStitching">Stitching Charges (₹)</label><input id="qbStitching" type="number" min="0" value="' + (p.StitchingCost || '') + '" oninput="updateQbTotal()"></div>' +
+            '<div class="qb-field"><label for="qbFabric">Fabric Cost (₹)</label><input id="qbFabric" type="number" min="0" value="' + (p.FabricCost || '') + '" oninput="updateQbTotal()"></div>' +
+            '<div class="qb-field"><label for="qbAdditional">Additional Charges (₹)</label><input id="qbAdditional" type="number" min="0" value="' + (p.AdditionalCost || '') + '" oninput="updateQbTotal()"></div>' +
+            '<div class="qb-field"><label for="qbTimeline">Delivery Timeline</label><input id="qbTimeline" type="text" placeholder="e.g. 7-10 working days" value="' + esc(p.DeliveryTimeline || '') + '"></div>' +
+            '<div class="qb-field"><label for="qbRequiredAdvance">Required Advance (₹) <span style="text-transform:none;letter-spacing:0;opacity:.7">(optional)</span></label><input id="qbRequiredAdvance" type="number" min="0" value="' + (p.RequiredAdvance || '') + '"></div>' +
+            '<div class="qb-field full-width"><label for="qbAdminNotes">Admin Notes <span style="text-transform:none;letter-spacing:0;opacity:.7">(internal only)</span></label><textarea id="qbAdminNotes" rows="2">' + esc(p.AdminNotes || '') + '</textarea></div>' +
           '</div>' +
-          '<div class="qb-total-row"><span>Total</span><span id="qbTotalDisplay">₹0</span></div>' +
+          '<div class="qb-total-row"><span>Total</span><span id="qbTotalDisplay">' + formatMoney((Number(p.StitchingCost) || 0) + (Number(p.FabricCost) || 0) + (Number(p.AdditionalCost) || 0)) + '</span></div>' +
           '<button type="button" class="btn-primary" style="width:100%" onclick="sendQuotation(\'' + order.OrderID + '\')" id="sendQuotationBtn">' +
-            '<i class="ti ti-send" aria-hidden="true"></i> Send Quotation' +
+            '<i class="ti ti-send" aria-hidden="true"></i> ' + (prefill ? 'Send Revised Quotation' : 'Send Quotation') +
           '</button>' +
           '<p class="form-status" id="quotationStatus" role="status" aria-live="polite"></p>' +
         '</div>';
@@ -1602,6 +1721,7 @@
       var additionalCost = Number(document.getElementById('qbAdditional').value) || 0;
       var deliveryTimeline = document.getElementById('qbTimeline').value.trim();
       var adminNotes = document.getElementById('qbAdminNotes').value.trim();
+      var requiredAdvance = Number(document.getElementById('qbRequiredAdvance').value) || 0;
       var total = stitchingCost + fabricCost + additionalCost;
 
       if (total <= 0) {
@@ -1619,6 +1739,7 @@
         if (waTab) {
           var msg = 'Hi ' + (user.Name || 'there') + '! 👋 Your quotation for ' + order.Garment + ' is ready.\n' +
             '💰 Total: ' + formatMoney(total) + '\n' +
+            (requiredAdvance > 0 ? '💵 Advance required: ' + formatMoney(requiredAdvance) + '\n' : '') +
             '🚚 Delivery: ' + (deliveryTimeline || 'TBD') + '\n' +
             'Please login to review & approve:\n' + LOGIN_URL + '\n' +
             '— Manasa Tailor ✂️';
@@ -1658,7 +1779,7 @@
       callApi('saveQuotation', {
         adminId: CURRENT_ADMIN.adminId, orderId: orderId, userId: order.UserID,
         stitchingCost: stitchingCost, fabricCost: fabricCost, additionalCost: additionalCost,
-        deliveryTimeline: deliveryTimeline, adminNotes: adminNotes
+        deliveryTimeline: deliveryTimeline, adminNotes: adminNotes, requiredAdvance: requiredAdvance
       }).then(function (res) {
         if (res && res.success) {
           succeed();
@@ -1694,6 +1815,11 @@
             '<p class="measure-quick-label">Quick add common fields:</p>' +
             '<div class="measure-chips" id="quickAddChips"></div>' +
           '</div>' +
+          '<div id="finalAmountWrap" style="display:none;margin-top:-4px">' +
+            '<label for="finalAmountInput" class="measure-form-label"><i class="ti ti-cash-banknote" aria-hidden="true"></i> Final Amount Received (₹)</label>' +
+            '<input type="number" min="0" id="finalAmountInput" oninput="updateStatusBtnState()" style="width:100%">' +
+            '<p class="detail-empty" id="finalAmountHint" style="margin-top:4px"></p>' +
+          '</div>' +
           '<div id="photoUploadWrap" style="display:none">' +
             '<div class="photo-upload-zone">' +
               '<i class="ti ti-camera" aria-hidden="true"></i>' +
@@ -1713,8 +1839,24 @@
       var select = document.getElementById('statusSelect');
       var needsPhoto = select.value === 'Ready for Collection';
       var needsMeasurements = select.value === 'Measurement Taken';
+      var needsFinalAmount = select.value === 'Payment Done';
       document.getElementById('photoUploadWrap').style.display = needsPhoto ? 'block' : 'none';
       document.getElementById('measurementFormWrap').style.display = needsMeasurements ? 'block' : 'none';
+      document.getElementById('finalAmountWrap').style.display = needsFinalAmount ? 'block' : 'none';
+
+      if (needsFinalAmount) {
+        var amountInput = document.getElementById('finalAmountInput');
+        var hint = document.getElementById('finalAmountHint');
+        if (activeApprovedQuotation) {
+          var total = Number(activeApprovedQuotation.TotalAmount) || 0;
+          var advance = Number((allOrders.filter(function (o) { return o.OrderID === activeOrderId; })[0] || {}).AdvanceAmount) || 0;
+          var balance = Math.max(0, total - advance);
+          if (!amountInput.value) amountInput.value = balance || '';
+          hint.textContent = 'Quoted total: ' + formatMoney(total) + (advance ? ', advance already recorded: ' + formatMoney(advance) : '') + '.';
+        } else {
+          hint.textContent = '';
+        }
+      }
 
       // Pre-fill from whatever's already saved for this order's garment (from
       // booking.html or an earlier admin edit) so building on it doesn't
@@ -1758,6 +1900,11 @@
       }
       if (select.value === 'Measurement Taken') {
         btn.disabled = pendingMeasurements.length === 0;
+        return;
+      }
+      if (select.value === 'Payment Done') {
+        var finalAmount = Number(document.getElementById('finalAmountInput').value);
+        btn.disabled = !finalAmount || finalAmount <= 0;
         return;
       }
       btn.disabled = false;
@@ -1883,12 +2030,15 @@
       });
     }
 
-    function statusUpdateWhatsAppMessage(status, name, service) {
+    function statusUpdateWhatsAppMessage(status, name, service, extra) {
       var greeting = 'Hi ' + (name || 'there') + '!';
       var templates = {
         'Measurement Taken': greeting + ' ✅ Your measurements have been recorded.\nWe\'ll start working on your ' + service + ' soon!\n— Manasa Tailor ✂️',
         'Work In Progress': greeting + ' 🪡 We\'ve started working on your ' + service + '.\nWe\'ll notify you when it\'s ready for collection!\n— Manasa Tailor ✂️',
         'Ready for Collection': '🎉 ' + greeting + ' Your ' + service + ' is ready for collection!\nPlease visit us at your convenience.\n📍 Manasa Tailor, Tumkur\n📞 +91 63601 94277\n— Manasa Tailor ✂️',
+        'Payment Done': '✅ ' + greeting + ' We\'ve received your payment of ' + (extra && extra.amount ? formatMoney(extra.amount) : '') + ' for your ' + service + '.\n' +
+          (extra && extra.invoiceUrl ? '🧾 Download your invoice: ' + extra.invoiceUrl + '\n' : '') +
+          '— Manasa Tailor ✂️',
         'Delivered': '✅ ' + greeting + ' Your order has been marked as delivered.\nThank you for choosing Manasa Tailor! 🙏\nWe\'d love to see you again. ✂️'
       };
       return templates[status] || (greeting + ' Your order for ' + service + ' has been updated to: ' + status + '.\nCheck details: ' + LOGIN_URL);
@@ -1902,6 +2052,9 @@
       var status = document.getElementById('statusUpdateStatus');
       var newStatus = select.value;
 
+      var finalAmount = newStatus === 'Payment Done' ? Number(document.getElementById('finalAmountInput').value) || 0 : 0;
+      var resultInvoiceUrl = '';
+
       setBtnLoading(btn, true, 'Updating…');
       setStatus(status, '', '');
 
@@ -1909,7 +2062,7 @@
 
       function finish() {
         if (waTab) {
-          var msg = statusUpdateWhatsAppMessage(newStatus, user.Name, order.Garment);
+          var msg = statusUpdateWhatsAppMessage(newStatus, user.Name, order.Garment, { amount: finalAmount, invoiceUrl: resultInvoiceUrl });
           waTab.location.href = 'https://wa.me/' + toWhatsAppNumber(user.Phone) + '?text=' + encodeURIComponent(msg);
         }
         loadAdminData();
@@ -1951,14 +2104,18 @@
       }
 
       function updateStatusStep() {
-        return callApi('updateOrderStatus', { adminId: CURRENT_ADMIN.adminId, orderId: orderId, status: newStatus })
+        var params = { adminId: CURRENT_ADMIN.adminId, orderId: orderId, status: newStatus };
+        if (newStatus === 'Payment Done') params.finalAmount = finalAmount;
+        return callApi('updateOrderStatus', params)
           .then(function (res) {
             if (!res || !res.success) throw new Error((res && res.error) || 'Something went wrong.');
+            if (res.data && res.data.invoiceUrl) resultInvoiceUrl = res.data.invoiceUrl;
           })
           .catch(function (err) {
             return callApi('getAllOrders', { adminId: CURRENT_ADMIN.adminId }).then(function (checkRes) {
               var current = checkRes && checkRes.success && checkRes.data.orders.filter(function (o) { return o.OrderID === orderId; })[0];
               if (!current || current.Status !== newStatus) throw err;
+              if (current.InvoiceURL) resultInvoiceUrl = current.InvoiceURL;
             });
           });
       }
@@ -2204,7 +2361,7 @@
     function notifIcon(type) {
       if (type === 'New Quotation Request') return 'ti-file-invoice';
       if (type === 'Customer Approved') return 'ti-circle-check';
-      if (type === 'Revision Requested') return 'ti-refresh';
+      if (type === 'Negotiation Requested') return 'ti-refresh';
       if (type === 'New Class Enrollment') return 'ti-school';
       return 'ti-bell';
     }
@@ -2215,7 +2372,7 @@
       var map = {
         'New Quotation Request': 'New Quotation Request',
         'Customer Approved': 'Customer Approved',
-        'Revision Requested': 'Revision Requested',
+        'Negotiation Requested': 'Negotiation Requested',
         'New Class Enrollment': 'New Class Enrollment'
       };
       return map[type] || 'Notification';
