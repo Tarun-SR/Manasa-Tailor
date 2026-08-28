@@ -134,6 +134,14 @@
     .auth-field input:focus { border-color: var(--rose); }
     .auth-field input[readonly] { background: #ece4e6; color: var(--muted); cursor: not-allowed; }
 
+    .pw-wrap { position: relative; display: flex; align-items: center; }
+    .pw-wrap input { width: 100%; padding-right: 38px; }
+    .pw-toggle {
+      position: absolute; right: 8px; background: none; border: none; padding: 6px;
+      display: flex; align-items: center; color: var(--muted); cursor: pointer; font-size: 16px; line-height: 1;
+    }
+    .pw-toggle:hover, .pw-toggle:focus-visible { color: var(--rose); }
+
     .form-status { font-size: 12px; color: var(--muted); min-height: 16px; margin-top: 4px; }
     .form-status.success { color: var(--rose-dark); font-weight: 500; }
     .form-status.error { color: #b23b3b; font-weight: 500; }
@@ -232,15 +240,24 @@
       <form id="passwordForm" onsubmit="return handlePasswordChange(event)">
         <div class="auth-field">
           <label for="currentPassword">Current Password</label>
-          <input id="currentPassword" type="password" autocomplete="current-password" required>
+          <div class="pw-wrap">
+            <input id="currentPassword" type="password" autocomplete="current-password" required>
+            <button type="button" class="pw-toggle" onclick="togglePasswordVisibility(this)" aria-label="Show password"><i class="ti ti-eye" aria-hidden="true"></i></button>
+          </div>
         </div>
         <div class="auth-field">
           <label for="newPassword">New Password</label>
-          <input id="newPassword" type="password" autocomplete="new-password" minlength="8" required>
+          <div class="pw-wrap">
+            <input id="newPassword" type="password" autocomplete="new-password" minlength="8" required>
+            <button type="button" class="pw-toggle" onclick="togglePasswordVisibility(this)" aria-label="Show password"><i class="ti ti-eye" aria-hidden="true"></i></button>
+          </div>
         </div>
         <div class="auth-field">
           <label for="confirmPassword">Confirm New Password</label>
-          <input id="confirmPassword" type="password" autocomplete="new-password" minlength="8" required>
+          <div class="pw-wrap">
+            <input id="confirmPassword" type="password" autocomplete="new-password" minlength="8" required>
+            <button type="button" class="pw-toggle" onclick="togglePasswordVisibility(this)" aria-label="Show password"><i class="ti ti-eye" aria-hidden="true"></i></button>
+          </div>
         </div>
         <button type="submit" class="btn-primary" id="passSaveBtn">Update Password</button>
         <p class="form-status" id="passStatus" role="status" aria-live="polite"></p>

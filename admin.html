@@ -118,13 +118,19 @@
       border-color: var(--rose); box-shadow: 0 0 0 3px rgba(201, 114, 138, .14);
     }
     .input-icon { position: relative; display: flex; align-items: center; }
-    .input-icon i { position: absolute; left: 12px; color: var(--rose); font-size: 16px; pointer-events: none; }
+    .input-icon > i { position: absolute; left: 12px; color: var(--rose); font-size: 16px; pointer-events: none; }
     .input-icon input {
       width: 100%; font-family: 'Jost', sans-serif; font-size: 13px; color: var(--dark); background: var(--cream);
       border: 1px solid var(--border); border-radius: 3px; padding: 11px 12px 11px 38px; outline: none;
       transition: border-color .25s var(--ease);
     }
     .input-icon input:focus { border-color: var(--rose); }
+    .input-icon.has-toggle input { padding-right: 38px; }
+    .pw-toggle {
+      position: absolute; right: 8px; background: none; border: none; padding: 6px;
+      display: flex; align-items: center; color: var(--muted); cursor: pointer; font-size: 16px; line-height: 1;
+    }
+    .pw-toggle:hover, .pw-toggle:focus-visible { color: var(--rose); }
     .form-status { font-size: 12px; min-height: 16px; text-align: center; margin-top: 10px; color: var(--muted); }
     .form-status.error { color: #b23b3b; font-weight: 500; }
     .form-status.success { color: var(--rose-dark); font-weight: 500; }
@@ -522,9 +528,10 @@
         </div>
         <div class="auth-field">
           <label for="adminPassword">Password</label>
-          <div class="input-icon">
+          <div class="input-icon has-toggle">
             <i class="ti ti-lock" aria-hidden="true"></i>
             <input id="adminPassword" type="password" autocomplete="current-password" required>
+            <button type="button" class="pw-toggle" onclick="togglePasswordVisibility(this)" aria-label="Show password"><i class="ti ti-eye" aria-hidden="true"></i></button>
           </div>
         </div>
         <button type="submit" class="btn-primary" id="adminLoginBtn" style="width:100%">Login</button>

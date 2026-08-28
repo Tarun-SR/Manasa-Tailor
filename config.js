@@ -165,3 +165,27 @@ function openWhatsAppRedirectTab_() {
   }
   return tab;
 }
+
+/**
+ * Shared show/hide toggle for password fields — used by the eye-icon button
+ * next to every password input (login.html, profile.html, admin.html).
+ * Looks for the input inside the same wrapper the button sits in (either
+ * .input-icon or .pw-wrap, whichever pattern that page uses) rather than
+ * assuming a fixed DOM position, so the same function works across pages
+ * with differently-shaped markup around the input.
+ */
+function togglePasswordVisibility(btn) {
+  var wrap = btn.closest('.input-icon, .pw-wrap');
+  var input = wrap ? wrap.querySelector('input') : null;
+  if (!input) return;
+
+  var showing = input.type === 'text';
+  input.type = showing ? 'password' : 'text';
+
+  var icon = btn.querySelector('i');
+  if (icon) {
+    icon.classList.toggle('ti-eye', showing);
+    icon.classList.toggle('ti-eye-off', !showing);
+  }
+  btn.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+}
