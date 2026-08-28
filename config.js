@@ -78,8 +78,10 @@ var CALLAPI_SAFE_RETRY_ACTIONS = [
   // deleteClass is idempotent in the sense that matters here: replaying it
   // after it already succeeded just hits deleteClass's own "Class not
   // found" branch (a harmless, already-true answer) rather than deleting
-  // something else or erroring in a new way. Same for deleteCustomer.
-  'deleteClass', 'deleteCustomer'
+  // something else or erroring in a new way. Same for deleteCustomer and
+  // forceDeleteCustomer — a replay after success just finds no matching
+  // rows left to remove.
+  'deleteClass', 'deleteCustomer', 'forceDeleteCustomer'
 ];
 
 // Confirmed live: a plain JSON.stringify'd object (raw braces/quotes/colons/

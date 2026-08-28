@@ -207,7 +207,8 @@ var ACTIONS = {
   getAllEnrollments: getAllEnrollments,
   updateEnrollmentStatus: updateEnrollmentStatus,
   deleteClass: deleteClass,
-  deleteCustomer: deleteCustomer
+  deleteCustomer: deleteCustomer,
+  forceDeleteCustomer: forceDeleteCustomer
 };
 
 /** One-time setup: creates every tab from SHEET_HEADERS if it doesn't already exist. */
@@ -1348,6 +1349,63 @@ function deleteCustomer(data) {
   });
 
   return ok_({ userId: userId });
+}
+
+/**
+ * Cascading delete for test/junk customer accounts — deleteCustomer refuses
+ * outright once a customer has order history, on purpose, so this is the
+ * explicit "yes, actually remove everything" escape hatch admin.html offers
+ * instead of leaving the admin to hand-delete rows across five tabs in the
+ * Sheet directly. Removes every row in Orders/Quotations/Measurements/
+ * Notifications/ClassEnrollments tied to this UserID, then the Users row
+ * itself, all under one lock so a failure partway through can't leave the
+ * account half-deleted while another request is also touching these sheets.
+ */
+function forceDeleteCustomer(data) {
+  var adminErr = requireAdmin_(data.adminId);
+  if (adminErr) return adminErr;
+
+  var userId = (data.userId || '').trim();
+  if (!userId) {
+    return fail_('userId is required');
+  }
+  var found = findById_(SHEET_NAMES.USERS, 'UserID', userId);
+  if (!found) {
+    return fail_('Customer not found');
+  }
+
+  var deleted = {};
+  withLock_(function () {
+    deleted.orders = deleteRowsByField_(SHEET_NAMES.ORDERS, SHEET_HEADERS.Orders, 'UserID', userId);
+    deleted.quotations = deleteRowsByField_(SHEET_NAMES.QUOTATIONS, SHEET_HEADERS.Quotations, 'UserID', userId);
+    deleted.measurements = deleteRowsByField_(SHEET_NAMES.MEASUREMENTS, SHEET_HEADERS.Measurements, 'UserID', userId);
+    deleted.notifications = deleteRowsByField_(SHEET_NAMES.NOTIFICATIONS, SHEET_HEADERS.Notifications, 'UserID', userId);
+    deleted.enrollments = deleteRowsByField_(SHEET_NAMES.CLASS_ENROLLMENTS, SHEET_HEADERS.ClassEnrollments, 'UserID', userId);
+    // Re-find the Users row instead of reusing `found.rowIndex` — the row
+    // number for the SAME account can't have shifted (nothing above deletes
+    // from the Users tab), but re-finding keeps this in the same defensive
+    // pattern as every other row-index use in this file rather than trusting
+    // a value computed before the lock was held.
+    var userRow = findById_(SHEET_NAMES.USERS, 'UserID', userId);
+    if (userRow) getSheet_(SHEET_NAMES.USERS).deleteRow(userRow.rowIndex);
+  });
+
+  return ok_({ userId: userId, deleted: deleted });
+}
+
+/** Deletes every row in `sheetName` where `field` equals `value`. Returns how many rows were removed. */
+function deleteRowsByField_(sheetName, headers, field, value) {
+  var sheet = getSheet_(sheetName);
+  var rows = sheetToObjects_(sheet);
+  var matchingRowIndexes = [];
+  rows.forEach(function (row, i) {
+    if (row[field] === value) matchingRowIndexes.push(i + 2); // header row + 1-based
+  });
+  // Delete bottom-to-top so removing one match doesn't shift the sheet row
+  // number of another match still waiting to be deleted.
+  matchingRowIndexes.sort(function (a, b) { return b - a; });
+  matchingRowIndexes.forEach(function (rowIndex) { sheet.deleteRow(rowIndex); });
+  return matchingRowIndexes.length;
 }
 
 function generateWalkInUsername_(name, phone) {
