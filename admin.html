@@ -1281,10 +1281,9 @@
               '<button type="button" class="btn-outline table-action-btn btn-sm" onclick="filterByCustomer(\'' + u.UserID + '\')">View Orders</button>' +
               '<button type="button" class="btn-outline table-action-btn btn-sm" data-user-id="' + esc(u.UserID) + '" data-user-name="' + esc(u.Name) + '" data-user-phone="' + esc(u.Phone) + '" onclick="resetCustomerPassword(this)">Reset Password</button>' +
               '<button type="button" class="btn-outline table-action-btn btn-sm" style="color:#b23b3b;border-color:#b23b3b" ' +
-                (userOrders.length
-                  ? 'disabled title="Has order history — can\'t be deleted"'
-                  : 'onclick="deleteCustomerPrompt(\'' + u.UserID + '\', \'' + esc(u.Name).replace(/'/g, "\\'") + '\')"') +
-              '>Delete</button>' +
+                'onclick="deleteCustomerPrompt(\'' + u.UserID + '\', \'' + esc(u.Name).replace(/'/g, "\\'") + '\', ' + userOrders.length + ')"' +
+                (userOrders.length ? ' title="Has order history — will also delete their orders, quotations, measurements, notifications and enrollments"' : '') +
+              '>' + (userOrders.length ? 'Force Delete' : 'Delete') + '</button>' +
             '</div></td>' +
           '</tr>';
       }).join('');
@@ -2204,9 +2203,22 @@
       });
     }
 
-    function deleteCustomerPrompt(userId, name) {
-      if (!confirm('Delete "' + name + '"? This can\'t be undone.')) return;
-      callApi('deleteCustomer', { adminId: CURRENT_ADMIN.adminId, userId: userId })
+    // orderCount === 0 uses the safe deleteCustomer action, which refuses
+    // outright if the customer turns out to have any order history after
+    // all (e.g. one was just created in another tab). orderCount > 0 goes
+    // through forceDeleteCustomer instead, which cascades the delete across
+    // every tab that references this customer — worth a distinctly scarier
+    // confirmation since it's real, irreversible customer data being removed
+    // rather than just an empty account.
+    function deleteCustomerPrompt(userId, name, orderCount) {
+      var action = orderCount > 0 ? 'forceDeleteCustomer' : 'deleteCustomer';
+      var message = orderCount > 0
+        ? 'Delete "' + name + '" and ALL their data — ' + orderCount + ' order' + (orderCount === 1 ? '' : 's') +
+          ', plus any quotations, measurements, notifications and class enrollments tied to them?\n\nThis cannot be undone.'
+        : 'Delete "' + name + '"? This can\'t be undone.';
+      if (!confirm(message)) return;
+
+      callApi(action, { adminId: CURRENT_ADMIN.adminId, userId: userId })
         .then(function (res) {
           if (!res || !res.success) alert((res && res.error) || 'Could not delete the customer.');
         })
