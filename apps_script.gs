@@ -63,19 +63,24 @@
  *
  * ORDER LIFECYCLE:
  * Quotation Requested -> Quotation Sent -> Order Confirmed -> Measurement
- * Taken -> Work In Progress -> Ready for Collection -> Payment Done ->
- * Delivered (or Cancelled). A customer rejecting a quotation
- * (respondToQuotation) sends the order to "Negotiation" instead, along with
- * their reason (Orders.NegotiationNote) — saveQuotation can be called again
- * from there just like from Quotation Requested, sending a revised quote
- * and moving the order back to Quotation Sent. Ready for Collection ->
- * Payment Done requires a finalAmount (and an optional discount, only
- * meaningful when the order was never negotiated — a negotiated price is
- * already the final agreed number) and generates a PDF invoice (see
- * generateInvoice_) rather than being a plain status flip. Each status
- * change also writes a Notification row tagged with that same status string
- * as its Type and the OrderID, so a per-order timeline can be rebuilt by
- * filtering Notifications on OrderID instead of keeping a separate log.
+ * Taken -> Work In Progress -> Ready for Collection -> Delivered (or
+ * Cancelled). A customer rejecting a quotation (respondToQuotation) sends
+ * the order to "Negotiation" instead, along with their reason
+ * (Orders.NegotiationNote) — saveQuotation can be called again from there
+ * just like from Quotation Requested, sending a revised quote and moving
+ * the order back to Quotation Sent. Payment itself is handled entirely
+ * off-app (Shilpa collects it directly from the customer) — there's no
+ * invoice, advance tracking, or amount-matching step here; marking an
+ * order Delivered is a plain status flip. Each status change also writes a
+ * Notification row tagged with that same status string as its Type and the
+ * OrderID, so a per-order timeline can be rebuilt by filtering
+ * Notifications on OrderID instead of keeping a separate log.
+ *
+ * 'Payment Done' still appears in ORDER_STATUSES and
+ * VALID_STATUS_TRANSITIONS purely for backward compatibility — this app
+ * used to have a Payment Done step with invoice generation, and any order
+ * that reached that status before it was removed needs a way to still be
+ * moved on to Delivered. No order can reach 'Payment Done' going forward.
  *
  * NOTE ON RE-RUNNING setupSheets(): the Quotations tab's columns changed
  * from a single Description/Amount pair to itemized StitchingCost /
@@ -111,12 +116,14 @@ var SHEET_NAMES = {
 
 var SHEET_HEADERS = {
   Users: ['UserID', 'Name', 'Phone', 'Email', 'PasswordHash', 'Salt', 'CreatedAt', 'City', 'Username'],
-  // AdvanceAmount/AdvancePaidAt are unused leftovers from an earlier advance-
-  // tracking design that was scrapped in favor of the simpler Discount model
-  // below — kept in place rather than removed so column positions never
+  // AdvanceAmount/AdvancePaidAt/FinalAmountPaid/PaymentDoneAt/InvoiceURL/
+  // Discount are unused leftovers from a payment-tracking + invoicing
+  // design that was later removed entirely (payment is now handled
+  // off-app) — kept in place rather than removed so column positions never
   // shift under a Sheet that already has setupSheets() run against it (see
   // the "NOTE ON RE-RUNNING setupSheets()" doc comment above).
   Orders: ['OrderID', 'UserID', 'Garment', 'Purpose', 'Date', 'TimeSlot', 'Notes', 'Status', 'CreatedAt', 'UpdatedAt', 'PhotoURLs', 'HasMeasurements', 'NegotiationNote', 'AdvanceAmount', 'AdvancePaidAt', 'FinalAmountPaid', 'PaymentDoneAt', 'InvoiceURL', 'Discount'],
+  // RequiredAdvance is an unused leftover for the same reason — see above.
   Quotations: ['QuotationID', 'OrderID', 'UserID', 'StitchingCost', 'FabricCost', 'AdditionalCost', 'TotalAmount', 'DeliveryTimeline', 'AdminNotes', 'RequiredAdvance', 'Status', 'CreatedAt', 'UpdatedAt'],
   Measurements: ['MeasurementID', 'UserID', 'Garment', 'MeasurementsJSON', 'CreatedAt', 'UpdatedAt'],
   Notifications: ['NotificationID', 'UserID', 'Message', 'Type', 'IsRead', 'CreatedAt', 'OrderID'],
@@ -141,14 +148,16 @@ var ENROLLMENT_STATUSES = ['New', 'Contacted', 'Confirmed', 'Enrolled', 'Complet
 // Quotation Requested -> Quotation Sent happens only via saveQuotation, and
 // Quotation Sent -> Order Confirmed / Negotiation only via respondToQuotation
 // (the customer's approve/reject) — neither goes through this map.
-// Ready for Collection -> Payment Done requires a finalAmount and generates
-// the invoice (see updateOrderStatus) rather than being a plain status flip.
+// 'Payment Done': ['Delivered'] only exists so an order that reached
+// Payment Done back when that status existed can still be moved on to
+// Delivered — no order can be newly set to Payment Done any more, since
+// nothing maps to it as a target here.
 // 'Cancelled' is allowed as an admin override from any open status.
 var VALID_STATUS_TRANSITIONS = {
   'Order Confirmed': ['Measurement Taken'],
   'Measurement Taken': ['Work In Progress'],
   'Work In Progress': ['Ready for Collection'],
-  'Ready for Collection': ['Payment Done'],
+  'Ready for Collection': ['Delivered'],
   'Payment Done': ['Delivered']
 };
 
@@ -159,7 +168,9 @@ var VALID_STATUS_TRANSITIONS = {
 // quotation lands here (with their reason, if given) instead of silently
 // looking identical to a brand-new never-quoted order; saveQuotation can be
 // called from here just like from Quotation Requested, sending a revised
-// quote and moving the order back to Quotation Sent.
+// quote and moving the order back to Quotation Sent. 'Payment Done' is kept
+// here purely so any pre-existing order sitting at that status still passes
+// validation — see the VALID_STATUS_TRANSITIONS comment above.
 var ORDER_STATUSES = [
   'Quotation Requested', 'Quotation Sent', 'Negotiation', 'Order Confirmed',
   'Measurement Taken', 'Work In Progress', 'Ready for Collection',
@@ -196,8 +207,7 @@ var ACTIONS = {
   getAllEnrollments: getAllEnrollments,
   updateEnrollmentStatus: updateEnrollmentStatus,
   deleteClass: deleteClass,
-  deleteCustomer: deleteCustomer,
-  generateInvoiceForOrder: generateInvoiceForOrder
+  deleteCustomer: deleteCustomer
 };
 
 /** One-time setup: creates every tab from SHEET_HEADERS if it doesn't already exist. */
@@ -472,16 +482,6 @@ function updateOrderStatus(data) {
     }
   }
 
-  var finalAmount = 0;
-  var discount = 0;
-  if (status === 'Payment Done') {
-    finalAmount = Number(data.finalAmount);
-    if (!finalAmount || finalAmount < 0) {
-      return fail_('finalAmount is required to mark payment done');
-    }
-    discount = Number(data.discount) || 0;
-  }
-
   var order = setOrderStatus_(orderId, status);
 
   var warning = '';
@@ -493,170 +493,8 @@ function updateOrderStatus(data) {
     }
   }
 
-  var invoiceUrl = '';
-  if (status === 'Payment Done') {
-    // Saved unconditionally, BEFORE attempting the invoice — if
-    // generateInvoice_ throws below, the amount Shilpa actually collected
-    // still needs to be on record rather than lost along with the invoice.
-    setOrderPaymentAmounts_(orderId, finalAmount, discount);
-    try {
-      invoiceUrl = generateInvoice_(orderId, finalAmount, discount);
-      setOrderInvoiceUrl_(orderId, invoiceUrl);
-    } catch (err) {
-      warning = 'Status updated, but invoice generation failed: ' + (err && err.message ? err.message : String(err));
-    }
-  }
-
   createNotification_(order.UserID, 'Your order status has been updated to "' + status + '".', status, orderId);
-  return warning ? fail_(warning) : ok_({ orderId: orderId, status: status, invoiceUrl: invoiceUrl });
-}
-
-function setOrderPaymentAmounts_(orderId, finalAmount, discount) {
-  var found = findById_(SHEET_NAMES.ORDERS, 'OrderID', orderId);
-  if (!found) return;
-
-  withLock_(function () {
-    var sheet = getSheet_(SHEET_NAMES.ORDERS);
-    var headers = SHEET_HEADERS.Orders;
-    sheet.getRange(found.rowIndex, headers.indexOf('FinalAmountPaid') + 1).setValue(finalAmount);
-    sheet.getRange(found.rowIndex, headers.indexOf('PaymentDoneAt') + 1).setValue(new Date());
-    sheet.getRange(found.rowIndex, headers.indexOf('Discount') + 1).setValue(discount || 0);
-  });
-}
-
-function setOrderInvoiceUrl_(orderId, invoiceUrl) {
-  var found = findById_(SHEET_NAMES.ORDERS, 'OrderID', orderId);
-  if (!found) return;
-
-  withLock_(function () {
-    var sheet = getSheet_(SHEET_NAMES.ORDERS);
-    var headers = SHEET_HEADERS.Orders;
-    sheet.getRange(found.rowIndex, headers.indexOf('InvoiceURL') + 1).setValue(invoiceUrl);
-  });
-}
-
-/**
- * Builds a PDF invoice (Google Doc -> PDF export, same Drive-folder pattern
- * as order photos) and returns its shareable view URL. There's no WhatsApp
- * Business API in this project, so nothing can auto-attach this file to a
- * WhatsApp message the way a person manually sending a PDF can — the
- * frontend instead sends a wa.me message containing this URL as a link the
- * customer taps to download, and shows the same link as a "Download
- * Invoice" button on their dashboard.
- *
- * "Original" is the very first quotation ever sent for this order;
- * "Approved" is the one the customer actually agreed to — the same
- * quotation unless a Negotiation round happened in between. The discount
- * (only ever entered on the admin side when there was no negotiation — a
- * negotiated price is already the final agreed number) only appears as its
- * own line when greater than zero, so an invoice with no discount doesn't
- * show a confusing "Discount: ₹0" line.
- */
-function generateInvoice_(orderId, finalAmount, discount) {
-  var orderFound = findById_(SHEET_NAMES.ORDERS, 'OrderID', orderId);
-  if (!orderFound) throw new Error('Order not found');
-  var order = orderFound.row;
-
-  var userFound = findById_(SHEET_NAMES.USERS, 'UserID', order.UserID);
-  var user = userFound ? userFound.row : { Name: '', Phone: '', Email: '' };
-
-  var orderQuotations = sheetToObjects_(getSheet_(SHEET_NAMES.QUOTATIONS))
-    .filter(function (q) { return q.OrderID === orderId; })
-    .sort(byCreatedAtDesc_);
-  var approvedQuotation = orderQuotations.filter(function (q) { return q.Status === 'Approved'; })[0] || null;
-  var originalQuotation = orderQuotations[orderQuotations.length - 1] || null; // oldest, since sorted newest-first
-  var wasNegotiated = !!approvedQuotation && !!originalQuotation && approvedQuotation.QuotationID !== originalQuotation.QuotationID;
-
-  var tz = Session.getScriptTimeZone();
-
-  var doc = DocumentApp.create('Invoice - ' + orderId);
-  var body = doc.getBody();
-  body.appendParagraph('Manasa Tailor').setHeading(DocumentApp.ParagraphHeading.TITLE);
-  body.appendParagraph('Home Boutique — Tumkur, Karnataka').setFontSize(10);
-  body.appendParagraph('');
-  body.appendParagraph('Invoice for Order ' + orderId);
-  body.appendParagraph('Date: ' + Utilities.formatDate(new Date(), tz, 'dd MMM yyyy'));
-  body.appendParagraph('');
-  body.appendParagraph('Bill To: ' + (user.Name || ''));
-  body.appendParagraph('Mobile: ' + (user.Phone || ''));
-  body.appendParagraph('Service: ' + (order.Garment || ''));
-  body.appendParagraph('');
-
-  var rows = [['Item', 'Amount (₹)']];
-  if (approvedQuotation) {
-    rows.push(['Stitching Charges', String(approvedQuotation.StitchingCost || 0)]);
-    rows.push(['Fabric Cost', String(approvedQuotation.FabricCost || 0)]);
-    if (Number(approvedQuotation.AdditionalCost) > 0) rows.push(['Additional Charges', String(approvedQuotation.AdditionalCost)]);
-    if (wasNegotiated) rows.push(['Original Quoted Amount', String(originalQuotation.TotalAmount || 0)]);
-    rows.push(['Quotation Amount', String(approvedQuotation.TotalAmount || 0)]);
-  }
-  if (discount > 0) rows.push(['Discount', String(discount)]);
-  rows.push(['Amount Received', String(finalAmount)]);
-  body.appendTable(rows);
-
-  body.appendParagraph('');
-  body.appendParagraph('Thank you for choosing Manasa Tailor!').setItalic(true);
-
-  doc.saveAndClose();
-  var pdfBlob = doc.getAs('application/pdf');
-  var docFile = DriveApp.getFileById(doc.getId());
-
-  var folder = getInvoicesFolder_();
-  var pdfFile = folder.createFile(pdfBlob).setName('Invoice-' + orderId + '.pdf');
-  pdfFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  docFile.setTrashed(true); // only the exported PDF is kept, not the source Doc
-
-  return 'https://drive.google.com/uc?export=download&id=' + pdfFile.getId();
-}
-
-/**
- * Recovery path for an order that reached Payment Done but never got an
- * invoice — generateInvoice_ can fail (e.g. a one-time Docs/Drive
- * authorization prompt the first time this deployment ever touches those
- * services) without rolling back the status change, matching
- * updateOrderStatus's existing fail-soft handling of the Ready for
- * Collection photo upload. There's no "Generate Invoice" transition to
- * retry from, so this re-runs the same invoice build using the
- * finalAmount/discount already stored on the order where available, and
- * falls back to data.finalAmount/data.discount otherwise.
- */
-function generateInvoiceForOrder(data) {
-  var adminErr = requireAdmin_(data.adminId);
-  if (adminErr) return adminErr;
-
-  var orderId = (data.orderId || '').trim();
-  if (!orderId) {
-    return fail_('orderId is required');
-  }
-
-  var found = findById_(SHEET_NAMES.ORDERS, 'OrderID', orderId);
-  if (!found) {
-    return fail_('Order not found');
-  }
-
-  // Normally FinalAmountPaid/Discount are already on the order (saved by
-  // updateOrderStatus before it ever attempts the invoice) — but an order
-  // that hit this failure before that ordering was fixed may have neither,
-  // so this also accepts them as fallback input to re-save alongside the
-  // retried invoice, instead of refusing to recover an order with no way
-  // forward.
-  var finalAmount = Number(found.row.FinalAmountPaid) || Number(data.finalAmount) || 0;
-  if (!finalAmount) {
-    return fail_('No payment amount is recorded for this order — enter the amount received to generate the invoice.');
-  }
-  var discount = found.row.FinalAmountPaid ? (Number(found.row.Discount) || 0) : (Number(data.discount) || 0);
-
-  setOrderPaymentAmounts_(orderId, finalAmount, discount);
-  var invoiceUrl = generateInvoice_(orderId, finalAmount, discount);
-  setOrderInvoiceUrl_(orderId, invoiceUrl);
-
-  return ok_({ orderId: orderId, invoiceUrl: invoiceUrl, finalAmount: finalAmount, discount: discount });
-}
-
-function getInvoicesFolder_() {
-  var name = 'Manasa Tailor Invoices';
-  var folders = DriveApp.getFoldersByName(name);
-  return folders.hasNext() ? folders.next() : DriveApp.createFolder(name);
+  return warning ? fail_(warning) : ok_({ orderId: orderId, status: status });
 }
 
 function isValidStatusTransition_(fromStatus, toStatus) {
@@ -750,7 +588,6 @@ function saveQuotation(data) {
   }
 
   var totalAmount = stitchingCost + fabricCost + additionalCost;
-  var requiredAdvance = Number(data.requiredAdvance) || 0;
   var quotationId = genId_('QUO');
   var now = new Date();
   appendRow_(getSheet_(SHEET_NAMES.QUOTATIONS), SHEET_HEADERS.Quotations, {
@@ -763,7 +600,6 @@ function saveQuotation(data) {
     TotalAmount: totalAmount,
     DeliveryTimeline: (data.deliveryTimeline || '').trim(),
     AdminNotes: (data.adminNotes || '').trim(),
-    RequiredAdvance: requiredAdvance,
     Status: 'Pending',
     CreatedAt: now,
     UpdatedAt: now

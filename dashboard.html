@@ -490,7 +490,7 @@
     document.getElementById('yr').textContent = new Date().getFullYear();
 
     var USER_STORAGE_KEY = 'manasaUser';
-    var TIMELINE_STAGES = ['Quotation Requested', 'Quotation Sent', 'Order Confirmed', 'Measurement Taken', 'Work In Progress', 'Ready for Collection', 'Payment Done', 'Delivered'];
+    var TIMELINE_STAGES = ['Quotation Requested', 'Quotation Sent', 'Order Confirmed', 'Measurement Taken', 'Work In Progress', 'Ready for Collection', 'Delivered'];
 
     var CURRENT_USER = null;
     var orders = [];
@@ -685,7 +685,6 @@
             '<details class="detail-collapse"><summary>Measurements</summary>' + renderMeasurements(order) + '</details>' +
             '<div class="detail-block"><h4 class="detail-block-title"><i class="ti ti-receipt" aria-hidden="true"></i> Quotation</h4>' + renderQuotation(order, latestQuotation) + '</div>' +
             '<div class="detail-block"><h4 class="detail-block-title"><i class="ti ti-timeline" aria-hidden="true"></i> Status Timeline</h4>' + renderTimeline(order, orderNotifs) + '</div>' +
-            renderPayment(order) +
             renderPhotos(order) +
           '</div>' +
         '</div>';
@@ -718,9 +717,6 @@
       var timelineHtml = quotation.DeliveryTimeline
         ? '<p class="quotation-notes"><i class="ti ti-truck-delivery" aria-hidden="true"></i> Delivery: ' + esc(quotation.DeliveryTimeline) + '</p>'
         : '';
-      var advanceHtml = Number(quotation.RequiredAdvance) > 0
-        ? '<p class="quotation-notes"><i class="ti ti-cash" aria-hidden="true"></i> Advance required: ' + formatMoney(quotation.RequiredAdvance) + '</p>'
-        : '';
       var actionsHtml = '';
       if (order.Status === 'Quotation Sent') {
         actionsHtml =
@@ -734,7 +730,7 @@
         '<div class="quotation-box">' +
           rows +
           '<div class="quotation-row quotation-total"><span>Total</span><span>' + formatMoney(quotation.TotalAmount) + '</span></div>' +
-          timelineHtml + advanceHtml + actionsHtml +
+          timelineHtml + actionsHtml +
         '</div>';
     }
 
@@ -776,21 +772,6 @@
       });
 
       return '<div class="timeline">' + steps.join('') + '</div>';
-    }
-
-    function renderPayment(order) {
-      var finalPaid = Number(order.FinalAmountPaid) || 0;
-      var discount = Number(order.Discount) || 0;
-      if (!finalPaid && !order.InvoiceURL) return '';
-
-      var rows = '';
-      if (discount) rows += '<p class="quotation-notes"><i class="ti ti-discount-2" aria-hidden="true"></i> Discount given: ' + formatMoney(discount) + '</p>';
-      if (finalPaid) rows += '<p class="quotation-notes"><i class="ti ti-check" aria-hidden="true"></i> Payment received: ' + formatMoney(finalPaid) + (order.PaymentDoneAt ? ' on ' + formatDate(order.PaymentDoneAt) : '') + '</p>';
-      var invoiceHtml = order.InvoiceURL
-        ? '<a class="btn-outline btn-sm" href="' + esc(order.InvoiceURL) + '" target="_blank" rel="noopener"><i class="ti ti-download" aria-hidden="true"></i> Download Invoice</a>'
-        : '';
-
-      return '<div class="detail-block"><h4 class="detail-block-title"><i class="ti ti-receipt-2" aria-hidden="true"></i> Payment</h4>' + rows + invoiceHtml + '</div>';
     }
 
     function renderPhotos(order) {

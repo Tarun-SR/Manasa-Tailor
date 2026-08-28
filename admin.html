@@ -846,12 +846,15 @@
     var ADMIN_WHATSAPP = '916360194277';
     var LOGIN_URL = 'https://tarun-sr.github.io/Manasa-Tailor/login.html';
 
-    var TIMELINE_STAGES = ['Quotation Requested', 'Quotation Sent', 'Order Confirmed', 'Measurement Taken', 'Work In Progress', 'Ready for Collection', 'Payment Done', 'Delivered'];
+    var TIMELINE_STAGES = ['Quotation Requested', 'Quotation Sent', 'Order Confirmed', 'Measurement Taken', 'Work In Progress', 'Ready for Collection', 'Delivered'];
+    // 'Payment Done': ['Delivered'] is kept only so an order that reached
+    // that status back when it existed can still be moved on — no order can
+    // be newly set to Payment Done any more.
     var VALID_STATUS_TRANSITIONS = {
       'Order Confirmed': ['Measurement Taken'],
       'Measurement Taken': ['Work In Progress'],
       'Work In Progress': ['Ready for Collection'],
-      'Ready for Collection': ['Payment Done'],
+      'Ready for Collection': ['Delivered'],
       'Payment Done': ['Delivered']
     };
     var FILTER_TABS = [
@@ -860,7 +863,7 @@
       { key: 'negotiation', label: 'Negotiation', statuses: ['Negotiation'] },
       { key: 'confirmed', label: 'Confirmed', statuses: ['Order Confirmed', 'Measurement Taken'] },
       { key: 'inprogress', label: 'In Progress', statuses: ['Work In Progress'] },
-      { key: 'ready', label: 'Ready', statuses: ['Ready for Collection', 'Payment Done'] },
+      { key: 'ready', label: 'Ready', statuses: ['Ready for Collection'] },
       { key: 'delivered', label: 'Delivered', statuses: ['Delivered'] }
     ];
     var SERVICES = ['Saree Blouse', 'Salwar / Churidar Set', 'Gown', 'Bridal Wear', 'Kurti / Top', 'Kids Frock', 'Alterations'];
@@ -892,7 +895,6 @@
     var pendingPhotoDataUrls = [];
     var pendingMeasurements = []; // [{name, value, unit}] — built by the measurement form
     var existingMeasurementsForOrder = null; // flat {label: value} from getMeasurementsByUser, or null
-    var activeOrderQuotations = []; // every quotation (any status) for the open order, newest first — lets the Payment Done panel show the original quote alongside the final negotiated one
 
     // ---------- Session guard (modal, not redirect) ----------
 
@@ -1326,85 +1328,15 @@
           '</div>' +
           (order.Notes ? '<div class="detail-grid" style="margin-top:10px"><div class="detail-field full-width"><span class="detail-field-label">Special Instructions</span><span class="detail-field-value">' + esc(order.Notes) + '</span></div></div>' : '') +
         '</div>' +
-        invoiceBlockHtml(order) +
         '<details class="detail-collapse"><summary>Measurements</summary><div id="orderMeasurementsContent"><p class="detail-empty loading-row"><span class="loading-ring sm"></span> Loading…</p></div></details>' +
         '<div class="detail-block"><div class="detail-block-title"><i class="ti ti-timeline" aria-hidden="true"></i> Status Timeline</div><div id="orderTimelineContent"><p class="detail-empty loading-row"><span class="loading-ring sm"></span> Loading…</p></div></div>' +
         '<div id="orderActionBlock"><p class="detail-empty loading-row"><span class="loading-ring sm"></span> Loading…</p></div>';
 
       document.getElementById('orderDetailBody').innerHTML = html;
 
-      activeOrderQuotations = [];
       loadOrderMeasurements(order);
       loadOrderTimeline(order);
       loadOrderActionBlock(order);
-    }
-
-    // No InvoiceURL after reaching Payment Done (or beyond) means
-    // generateInvoice_ failed server-side after the status change already
-    // went through (e.g. a one-time Docs/Drive authorization prompt on this
-    // deployment) — offer a retry instead of leaving the order stuck. If
-    // the payment amount itself never got saved either (an order that hit
-    // this before that save was made unconditional), ask for it again
-    // rather than refusing to recover the order at all.
-    function invoiceBlockHtml(order) {
-      if (order.InvoiceURL) {
-        return '<div class="detail-block"><div class="detail-block-title"><i class="ti ti-file-invoice" aria-hidden="true"></i> Invoice</div><a class="btn-outline btn-sm" href="' + esc(order.InvoiceURL) + '" target="_blank" rel="noopener"><i class="ti ti-download" aria-hidden="true"></i> Download Invoice</a></div>';
-      }
-      if (order.Status !== 'Payment Done' && order.Status !== 'Delivered') return '';
-
-      var hasAmount = Number(order.FinalAmountPaid) > 0;
-      return '<div class="detail-block"><div class="detail-block-title"><i class="ti ti-file-invoice" aria-hidden="true"></i> Invoice</div>' +
-        '<p class="detail-empty">' + (hasAmount
-          ? 'Payment was recorded but the invoice couldn\'t be generated.'
-          : 'No invoice was generated and the amount received wasn\'t saved — enter it again below.') + '</p>' +
-        (hasAmount ? '' :
-          '<label for="genInvoiceAmount" class="measure-form-label">Amount Received (₹)</label>' +
-          '<input type="number" min="0" id="genInvoiceAmount" style="width:100%">' +
-          '<label for="genInvoiceDiscount" class="measure-form-label" style="margin-top:8px">Discount Given (₹) <span style="text-transform:none;letter-spacing:0;opacity:.7">(optional)</span></label>' +
-          '<input type="number" min="0" id="genInvoiceDiscount" style="width:100%">'
-        ) +
-        '<button type="button" class="btn-outline btn-sm" style="margin-top:10px" id="genInvoiceBtn" onclick="generateInvoiceForOrder(\'' + order.OrderID + '\')">' +
-          '<i class="ti ti-refresh" aria-hidden="true"></i> Generate Invoice' +
-        '</button>' +
-        '<p class="form-status" id="genInvoiceStatus" role="status" aria-live="polite"></p>' +
-      '</div>';
-    }
-
-    function generateInvoiceForOrder(orderId) {
-      var btn = document.getElementById('genInvoiceBtn');
-      var status = document.getElementById('genInvoiceStatus');
-      var amountEl = document.getElementById('genInvoiceAmount');
-      var discountEl = document.getElementById('genInvoiceDiscount');
-
-      var params = { adminId: CURRENT_ADMIN.adminId, orderId: orderId };
-      if (amountEl) {
-        var amount = Number(amountEl.value);
-        if (!amount || amount <= 0) {
-          setStatus(status, 'Enter the amount that was actually received.', 'error');
-          return;
-        }
-        params.finalAmount = amount;
-        params.discount = Number((discountEl && discountEl.value) || 0) || 0;
-      }
-
-      setBtnLoading(btn, true, 'Generating…');
-      setStatus(status, '', '');
-
-      callApi('generateInvoiceForOrder', params)
-        .then(function (res) {
-          if (!res || !res.success) throw new Error((res && res.error) || 'Could not generate the invoice.');
-          var order = allOrders.filter(function (o) { return o.OrderID === orderId; })[0];
-          if (order) {
-            order.InvoiceURL = res.data.invoiceUrl;
-            if (res.data.finalAmount) order.FinalAmountPaid = res.data.finalAmount;
-          }
-          loadAdminData(); // background refresh — doesn't gate the UI below
-          if (orderId === activeOrderId) renderOrderDetailPanel();
-        })
-        .catch(function (err) {
-          setStatus(status, (err && err.message) || "Couldn't reach the server.", 'error');
-          setBtnLoading(btn, false);
-        });
     }
 
     function detailField(label, value) {
@@ -1612,38 +1544,6 @@
       }).join('') + '</div>';
     }
 
-    // ---------- Payment Done pricing ----------
-    // No advance-tracking here — there's no payment gateway in this app, so
-    // recording a partial payment separately just added a step without
-    // adding any verification. Instead, everything the Payment Done step
-    // needs (the quotation amount, and the negotiated one if the order went
-    // through a Negotiation round) comes from the order's quotation history.
-
-    function loadOrderQuotationHistory_(order) {
-      var orderId = order.OrderID;
-      return callApi('getQuotationsByOrder', { adminId: CURRENT_ADMIN.adminId, orderId: order.OrderID }).then(function (res) {
-        if (orderId !== activeOrderId) return;
-        activeOrderQuotations = (res && res.success) ? res.data.quotations : [];
-      });
-    }
-
-    // Original = the very first quotation ever sent for this order; Final =
-    // the currently Approved one. They're the same quotation unless a
-    // Negotiation round happened in between, in which case both are shown
-    // so Shilpa can see what actually changed rather than just the latest
-    // number. Returns null until activeOrderQuotations has loaded.
-    function quotationPriceSummary_() {
-      if (!activeOrderQuotations.length) return null;
-      var byOldest = activeOrderQuotations.slice().sort(function (a, b) { return new Date(a.CreatedAt) - new Date(b.CreatedAt); });
-      var original = byOldest[0];
-      var approved = activeOrderQuotations.filter(function (q) { return q.Status === 'Approved'; })[0] || null;
-      return {
-        originalTotal: Number(original.TotalAmount) || 0,
-        finalTotal: approved ? (Number(approved.TotalAmount) || 0) : null,
-        wasNegotiated: !!approved && approved.QuotationID !== original.QuotationID
-      };
-    }
-
     function loadOrderActionBlock(order) {
       var block = document.getElementById('orderActionBlock');
       if (!block) return;
@@ -1690,13 +1590,6 @@
 
       block.innerHTML = statusUpdateHtml(order);
       renderQuickAddChips(order.Garment);
-
-      // Only Ready for Collection can move to Payment Done, which needs the
-      // order's quotation history to show/validate the amount to collect —
-      // fetch it now so it's ready by the time that option is picked.
-      if (order.Status === 'Ready for Collection') {
-        loadOrderQuotationHistory_(order);
-      }
     }
 
     // ---------- Quotation builder ----------
@@ -1713,7 +1606,6 @@
             '<div class="qb-field"><label for="qbFabric">Fabric Cost (₹)</label><input id="qbFabric" type="number" min="0" value="' + (p.FabricCost || '') + '" oninput="updateQbTotal()"></div>' +
             '<div class="qb-field"><label for="qbAdditional">Additional Charges (₹)</label><input id="qbAdditional" type="number" min="0" value="' + (p.AdditionalCost || '') + '" oninput="updateQbTotal()"></div>' +
             '<div class="qb-field"><label for="qbTimeline">Delivery Timeline</label><input id="qbTimeline" type="text" placeholder="e.g. 7-10 working days" value="' + esc(p.DeliveryTimeline || '') + '"></div>' +
-            '<div class="qb-field"><label for="qbRequiredAdvance">Required Advance (₹) <span style="text-transform:none;letter-spacing:0;opacity:.7">(optional)</span></label><input id="qbRequiredAdvance" type="number" min="0" value="' + (p.RequiredAdvance || '') + '"></div>' +
             '<div class="qb-field full-width"><label for="qbAdminNotes">Admin Notes <span style="text-transform:none;letter-spacing:0;opacity:.7">(internal only)</span></label><textarea id="qbAdminNotes" rows="2">' + esc(p.AdminNotes || '') + '</textarea></div>' +
           '</div>' +
           '<div class="qb-total-row"><span>Total</span><span id="qbTotalDisplay">' + formatMoney((Number(p.StitchingCost) || 0) + (Number(p.FabricCost) || 0) + (Number(p.AdditionalCost) || 0)) + '</span></div>' +
@@ -1742,7 +1634,6 @@
       var additionalCost = Number(document.getElementById('qbAdditional').value) || 0;
       var deliveryTimeline = document.getElementById('qbTimeline').value.trim();
       var adminNotes = document.getElementById('qbAdminNotes').value.trim();
-      var requiredAdvance = Number(document.getElementById('qbRequiredAdvance').value) || 0;
       var total = stitchingCost + fabricCost + additionalCost;
 
       if (total <= 0) {
@@ -1760,7 +1651,6 @@
         if (waTab) {
           var msg = 'Hi ' + (user.Name || 'there') + '! 👋 Your quotation for ' + order.Garment + ' is ready.\n' +
             '💰 Total: ' + formatMoney(total) + '\n' +
-            (requiredAdvance > 0 ? '💵 Advance required: ' + formatMoney(requiredAdvance) + '\n' : '') +
             '🚚 Delivery: ' + (deliveryTimeline || 'TBD') + '\n' +
             'Please login to review & approve:\n' + LOGIN_URL + '\n' +
             '— Manasa Tailor ✂️';
@@ -1800,7 +1690,7 @@
       callApi('saveQuotation', {
         adminId: CURRENT_ADMIN.adminId, orderId: orderId, userId: order.UserID,
         stitchingCost: stitchingCost, fabricCost: fabricCost, additionalCost: additionalCost,
-        deliveryTimeline: deliveryTimeline, adminNotes: adminNotes, requiredAdvance: requiredAdvance
+        deliveryTimeline: deliveryTimeline, adminNotes: adminNotes
       }).then(function (res) {
         if (res && res.success) {
           succeed();
@@ -1836,16 +1726,6 @@
             '<p class="measure-quick-label">Quick add common fields:</p>' +
             '<div class="measure-chips" id="quickAddChips"></div>' +
           '</div>' +
-          '<div id="finalAmountWrap" style="display:none;margin-top:-4px">' +
-            '<div class="detail-grid" id="finalAmountSummary"></div>' +
-            '<div id="discountFieldWrap" style="display:none;margin-top:10px">' +
-              '<label for="discountInput" class="measure-form-label"><i class="ti ti-discount-2" aria-hidden="true"></i> Discount Given (₹) <span style="text-transform:none;letter-spacing:0;opacity:.7">(optional)</span></label>' +
-              '<input type="number" min="0" id="discountInput" oninput="onDiscountInput_()" style="width:100%">' +
-            '</div>' +
-            '<label for="finalAmountInput" class="measure-form-label" style="margin-top:10px"><i class="ti ti-cash-banknote" aria-hidden="true"></i> Amount Actually Received (₹)</label>' +
-            '<input type="number" min="0" id="finalAmountInput" oninput="updateStatusBtnState()" style="width:100%">' +
-            '<p class="form-status" id="finalAmountMatchStatus" role="status" aria-live="polite"></p>' +
-          '</div>' +
           '<div id="photoUploadWrap" style="display:none">' +
             '<div class="photo-upload-zone">' +
               '<i class="ti ti-camera" aria-hidden="true"></i>' +
@@ -1865,12 +1745,8 @@
       var select = document.getElementById('statusSelect');
       var needsPhoto = select.value === 'Ready for Collection';
       var needsMeasurements = select.value === 'Measurement Taken';
-      var needsFinalAmount = select.value === 'Payment Done';
       document.getElementById('photoUploadWrap').style.display = needsPhoto ? 'block' : 'none';
       document.getElementById('measurementFormWrap').style.display = needsMeasurements ? 'block' : 'none';
-      document.getElementById('finalAmountWrap').style.display = needsFinalAmount ? 'block' : 'none';
-
-      if (needsFinalAmount) refreshPaymentDoneCalc_();
 
       // Pre-fill from whatever's already saved for this order's garment (from
       // booking.html or an earlier admin edit) so building on it doesn't
@@ -1916,85 +1792,7 @@
         btn.disabled = pendingMeasurements.length === 0;
         return;
       }
-      if (select.value === 'Payment Done') {
-        btn.disabled = !checkFinalAmountMatch_();
-        return;
-      }
       btn.disabled = false;
-    }
-
-    // The negotiated price (if the order went through a Negotiation round)
-    // already IS the final agreed number, so a discount only makes sense on
-    // top of the original quotation when there was no negotiation.
-    function paymentDoneMainAmount_(summary) {
-      return summary.wasNegotiated ? summary.finalTotal : summary.originalTotal;
-    }
-
-    // Redraws the Quotation Amount / Negotiated Amount / Discount / Amount
-    // to Collect breakdown and re-prefills the received-amount field.
-    // Called on selecting Payment Done and again whenever the discount
-    // input changes, so the breakdown always reflects what's on screen.
-    function refreshPaymentDoneCalc_() {
-      var summaryEl = document.getElementById('finalAmountSummary');
-      var discountWrap = document.getElementById('discountFieldWrap');
-      var amountInput = document.getElementById('finalAmountInput');
-      var summary = quotationPriceSummary_();
-
-      if (!summary) {
-        summaryEl.innerHTML = '';
-        discountWrap.style.display = 'none';
-        return;
-      }
-
-      discountWrap.style.display = summary.wasNegotiated ? 'none' : 'block';
-      var mainAmount = paymentDoneMainAmount_(summary);
-      var discount = summary.wasNegotiated ? 0 : (Number(document.getElementById('discountInput').value) || 0);
-      var payable = Math.max(0, mainAmount - discount);
-
-      var rows = summary.wasNegotiated
-        ? detailField('Original Quote', formatMoney(summary.originalTotal)) + detailField('Negotiated Amount', formatMoney(summary.finalTotal))
-        : detailField('Quotation Amount', formatMoney(summary.originalTotal));
-      if (discount > 0) rows += detailField('Discount Given', formatMoney(discount));
-      rows += detailField('Amount to Collect', formatMoney(payable));
-      summaryEl.innerHTML = rows;
-
-      if (!amountInput.value) amountInput.value = payable || '';
-    }
-
-    function onDiscountInput_() {
-      refreshPaymentDoneCalc_();
-      updateStatusBtnState();
-    }
-
-    // The invoice should only ever be generated once the amount Shilpa says
-    // she actually received matches what's owed — the quotation amount (or
-    // the negotiated one, if the order went through a Negotiation round)
-    // minus any discount she's given. A small epsilon (not exact equality)
-    // guards against meaningless float rounding on that subtraction.
-    function checkFinalAmountMatch_() {
-      var el = document.getElementById('finalAmountMatchStatus');
-      var amountInput = document.getElementById('finalAmountInput');
-      if (!el || !amountInput) return false;
-
-      var summary = quotationPriceSummary_();
-      if (!summary) { setStatus(el, '', ''); return false; }
-
-      var mainAmount = paymentDoneMainAmount_(summary);
-      var discount = summary.wasNegotiated ? 0 : (Number(document.getElementById('discountInput').value) || 0);
-      var expected = Math.max(0, mainAmount - discount);
-      var entered = Number(amountInput.value) || 0;
-
-      if (!amountInput.value) {
-        setStatus(el, '', '');
-        return false;
-      }
-      var matches = entered > 0 && Math.abs(entered - expected) < 0.5;
-      if (matches) {
-        setStatus(el, 'Matches the amount to collect — ready to mark Payment Done.', 'success');
-      } else {
-        setStatus(el, 'Doesn\'t match — amount to collect is ' + formatMoney(expected) + '.', 'error');
-      }
-      return matches;
     }
 
     // ---------- Measurement builder ----------
@@ -2117,15 +1915,12 @@
       });
     }
 
-    function statusUpdateWhatsAppMessage(status, name, service, extra) {
+    function statusUpdateWhatsAppMessage(status, name, service) {
       var greeting = 'Hi ' + (name || 'there') + '!';
       var templates = {
         'Measurement Taken': greeting + ' ✅ Your measurements have been recorded.\nWe\'ll start working on your ' + service + ' soon!\n— Manasa Tailor ✂️',
         'Work In Progress': greeting + ' 🪡 We\'ve started working on your ' + service + '.\nWe\'ll notify you when it\'s ready for collection!\n— Manasa Tailor ✂️',
         'Ready for Collection': '🎉 ' + greeting + ' Your ' + service + ' is ready for collection!\nPlease visit us at your convenience.\n📍 Manasa Tailor, Tumkur\n📞 +91 63601 94277\n— Manasa Tailor ✂️',
-        'Payment Done': '✅ ' + greeting + ' We\'ve received your payment of ' + (extra && extra.amount ? formatMoney(extra.amount) : '') + ' for your ' + service + '.\n' +
-          (extra && extra.invoiceUrl ? '🧾 Download your invoice: ' + extra.invoiceUrl + '\n' : '') +
-          '— Manasa Tailor ✂️',
         'Delivered': '✅ ' + greeting + ' Your order has been marked as delivered.\nThank you for choosing Manasa Tailor! 🙏\nWe\'d love to see you again. ✂️'
       };
       return templates[status] || (greeting + ' Your order for ' + service + ' has been updated to: ' + status + '.\nCheck details: ' + LOGIN_URL);
@@ -2139,9 +1934,6 @@
       var status = document.getElementById('statusUpdateStatus');
       var newStatus = select.value;
 
-      var finalAmount = newStatus === 'Payment Done' ? Number(document.getElementById('finalAmountInput').value) || 0 : 0;
-      var resultInvoiceUrl = '';
-
       setBtnLoading(btn, true, 'Updating…');
       setStatus(status, '', '');
 
@@ -2149,7 +1941,7 @@
 
       function finish() {
         if (waTab) {
-          var msg = statusUpdateWhatsAppMessage(newStatus, user.Name, order.Garment, { amount: finalAmount, invoiceUrl: resultInvoiceUrl });
+          var msg = statusUpdateWhatsAppMessage(newStatus, user.Name, order.Garment);
           waTab.location.href = 'https://wa.me/' + toWhatsAppNumber(user.Phone) + '?text=' + encodeURIComponent(msg);
         }
         loadAdminData();
@@ -2192,21 +1984,14 @@
 
       function updateStatusStep() {
         var params = { adminId: CURRENT_ADMIN.adminId, orderId: orderId, status: newStatus };
-        if (newStatus === 'Payment Done') {
-          params.finalAmount = finalAmount;
-          var summary = quotationPriceSummary_();
-          params.discount = (summary && !summary.wasNegotiated) ? (Number(document.getElementById('discountInput').value) || 0) : 0;
-        }
         return callApi('updateOrderStatus', params)
           .then(function (res) {
             if (!res || !res.success) throw new Error((res && res.error) || 'Something went wrong.');
-            if (res.data && res.data.invoiceUrl) resultInvoiceUrl = res.data.invoiceUrl;
           })
           .catch(function (err) {
             return callApi('getAllOrders', { adminId: CURRENT_ADMIN.adminId }).then(function (checkRes) {
               var current = checkRes && checkRes.success && checkRes.data.orders.filter(function (o) { return o.OrderID === orderId; })[0];
               if (!current || current.Status !== newStatus) throw err;
-              if (current.InvoiceURL) resultInvoiceUrl = current.InvoiceURL;
             });
           });
       }
