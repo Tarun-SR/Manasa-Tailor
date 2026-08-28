@@ -1281,7 +1281,7 @@
               '<button type="button" class="btn-outline table-action-btn btn-sm" onclick="filterByCustomer(\'' + u.UserID + '\')">View Orders</button>' +
               '<button type="button" class="btn-outline table-action-btn btn-sm" data-user-id="' + esc(u.UserID) + '" data-user-name="' + esc(u.Name) + '" data-user-phone="' + esc(u.Phone) + '" onclick="resetCustomerPassword(this)">Reset Password</button>' +
               '<button type="button" class="btn-outline table-action-btn btn-sm" style="color:#b23b3b;border-color:#b23b3b" ' +
-                'onclick="deleteCustomerPrompt(\'' + u.UserID + '\', \'' + esc(u.Name).replace(/'/g, "\\'") + '\', ' + userOrders.length + ')"' +
+                'onclick="deleteCustomerPrompt(this, \'' + u.UserID + '\', \'' + esc(u.Name).replace(/'/g, "\\'") + '\', ' + userOrders.length + ')"' +
                 (userOrders.length ? ' title="Has order history — will also delete their orders, quotations, measurements, notifications and enrollments"' : '') +
               '>' + (userOrders.length ? 'Force Delete' : 'Delete') + '</button>' +
             '</div></td>' +
@@ -2210,7 +2210,7 @@
     // every tab that references this customer — worth a distinctly scarier
     // confirmation since it's real, irreversible customer data being removed
     // rather than just an empty account.
-    function deleteCustomerPrompt(userId, name, orderCount) {
+    function deleteCustomerPrompt(btn, userId, name, orderCount) {
       var action = orderCount > 0 ? 'forceDeleteCustomer' : 'deleteCustomer';
       var message = orderCount > 0
         ? 'Delete "' + name + '" and ALL their data — ' + orderCount + ' order' + (orderCount === 1 ? '' : 's') +
@@ -2218,14 +2218,23 @@
         : 'Delete "' + name + '"? This can\'t be undone.';
       if (!confirm(message)) return;
 
+      setBtnLoading(btn, true, 'Deleting…');
+
       callApi(action, { adminId: CURRENT_ADMIN.adminId, userId: userId })
         .then(function (res) {
-          if (!res || !res.success) alert((res && res.error) || 'Could not delete the customer.');
+          if (!res || !res.success) {
+            alert((res && res.error) || 'Could not delete the customer.');
+            return;
+          }
+          alert('"' + name + '" was deleted successfully.');
         })
         .catch(function () {
           alert("Couldn't confirm that reached the server — refreshing to show the current state.");
         })
-        .then(loadAdminData);
+        .then(function () {
+          setBtnLoading(btn, false);
+          loadAdminData();
+        });
     }
 
     function credentialRow(label, value) {
